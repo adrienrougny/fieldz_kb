@@ -28,7 +28,11 @@ class BaseNode(neomodel.StructuredNode):
     pass
 
 
-type_to_node_class = {}
+class Integer(BaseNode):
+    value: neomodel.IntegerProperty(required=True)
+
+
+_type_to_node_class = {}
 type_to_node_base_property_class = {
     str: neomodel.StringProperty,
     int: neomodel.IntegerProperty,
@@ -207,6 +211,11 @@ def _get_node_property_attributes_from_type(type_):
         ordered = False
         property_type = "relationship"
         target_types = frozenset([type_])
+    elif type_origin.__name__ == "NoneValueType":  # TO DELETE
+        many = False
+        ordered = False
+        property_type = "relationship"
+        target_types = frozenset([(str, ())])
     else:
         raise ValueError(f"type {type_} not supported")
     return (
@@ -218,7 +227,7 @@ def _get_node_property_attributes_from_type(type_):
 
 
 def _get_or_make_node_class_from_class(type_):
-    node_class = type_to_node_class.get(type_)
+    node_class = _type_to_node_class.get(type_)
     if node_class is None:
         node_class = _make_node_class_from_class(type_)
     return node_class
@@ -243,7 +252,7 @@ def _make_node_class_from_fieldz_class(fieldz_class):
         )
         node_class_dict[field.name] = node_property
     node_class = type(node_class_name, node_class_bases, node_class_dict)
-    type_to_node_class[fieldz_class] = node_class
+    _type_to_node_class[fieldz_class] = node_class
     return node_class
 
 
@@ -261,12 +270,12 @@ def _make_node_class_from_enum_class(enum_class):
     if node_property_class is not None:
         node_class_dict["value"] = node_property_class()
     node_class = type(node_class_name, node_class_bases, node_class_dict)
-    type_to_node_class[enum_class] = node_class
+    _type_to_node_class[enum_class] = node_class
     return node_class
 
 
 def _save_node_from_fieldz_object(
-    fieldz_object, integration_mode, object_to_node
+    fieldz_object, integration_mode, object_to_node, exclude_from_integration
 ) -> neomodel.StructuredNode:
     fieldz_class = type(fieldz_object)
     node_class = _get_or_make_node_class_from_class(fieldz_class)
@@ -300,6 +309,7 @@ def _save_node_from_fieldz_object(
                         field_value_element,
                         integration_mode=integration_mode,
                         object_to_node=object_to_node,
+                        exclude_from_integration=exclude_from_integration,
                     )
                     nodes_to_connect.append((node_element, field.name, order))
     node.save()
@@ -314,7 +324,9 @@ def _save_node_from_fieldz_object(
     return node
 
 
-def _save_node_from_enum_object(enum_object, integration_mode, object_to_node):
+def _save_node_from_enum_object(
+    enum_object, integration_mode, object_to_node, exclude_from_integration
+):
     enum_class = type(enum_object)
     node_class = _get_or_make_node_class_from_class(enum_class)
     node = node_class()
@@ -324,14 +336,36 @@ def _save_node_from_enum_object(enum_object, integration_mode, object_to_node):
     return node
 
 
+def _save_node_from_int_object(
+    int_object, integration_mode, object_to_node, exclude_from_integration
+):
+    node = Integer(value=int_object)
+    node.save()
+    return node
+
+
+_type_to_save_node_function = {
+    int: _save_node_from_int_object,
+}
+
+
+def register_save_node_function(type_, function):
+    _type_to_save_node_function[type_] = function
+
+
 def save_node_from_object(
     object_,
     integration_mode: typing.Literal["hash", "id"] | None = None,
     object_to_node=None,
+    exclude_from_integration=None,
 ):
-    if integration_mode is not None:
-        if object_to_node is None:
-            object_to_node = {}
+    if object_to_node is None:
+        object_to_node = {}
+    if exclude_from_integration is None:
+        exclude_from_integration = tuple([])
+    if integration_mode is not None and not isinstance(
+        object_, tuple(exclude_from_integration)
+    ):
         if integration_mode == "hash":
             if not isinstance(object_, collections.abc.Hashable):
                 raise ValueError(
@@ -343,12 +377,23 @@ def save_node_from_object(
         if node is not None:
             return node
     class_ = type(object_)
-    if fieldz_kb.typeinfo.is_fieldz_class(class_):
-        node = _save_node_from_fieldz_object(object_, integration_mode, object_to_node)
-    elif issubclass(class_, enum.Enum):
-        node = _save_node_from_enum_object(object_, integration_mode, object_to_node)
-    else:
-        raise ValueError(f"object of type {class_} not supported")
+    save_node_function = _type_to_save_node_function.get(class_)
+    if save_node_function is None:  # we use the pre-built save functions
+        if fieldz_kb.typeinfo.is_fieldz_class(class_):
+            save_node_function = _save_node_from_fieldz_object
+        elif issubclass(class_, enum.Enum):
+            save_node_function = _save_node_from_enum_object
+        else:
+            raise ValueError(f"object of type {class_} not supported")
+    node = save_node_function(
+        object_, integration_mode, object_to_node, exclude_from_integration
+    )
+    if not isinstance(node, BaseNode):
+        raise ValueError(
+            f"custom node type {type(node)} must be a subclass of BaseNode"
+        )
+    if class_ not in _type_to_node_class:
+        _type_to_node_class[class_] = type(node)
     if integration_mode == "hash":
         object_to_node[object_] = node
     elif integration_mode == "id":
