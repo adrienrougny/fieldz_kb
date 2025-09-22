@@ -11,9 +11,9 @@ import neomodel
 import fieldz_kb.typeinfo
 
 
-base_types = (int, str, float, bool)
-array_types = (list, tuple, set, frozenset)
-ordered_array_types = (list, tuple)
+_base_types = (int, str, float, bool)
+_array_types = (list, tuple, set, frozenset)
+_ordered_array_types = (list, tuple)
 
 
 class OrderedRelationshipTo(neomodel.StructuredRel):
@@ -33,7 +33,7 @@ class Integer(BaseNode):
 
 
 _type_to_node_class = {}
-type_to_node_base_property_class = {
+_type_to_node_base_property_class = {
     str: neomodel.StringProperty,
     int: neomodel.IntegerProperty,
     float: neomodel.FloatProperty,
@@ -122,7 +122,7 @@ def _make_node_property_from_field(field, module=None):
         )
         if property_type == "base":
             target_type, _ = next(iter(target_types))
-            node_property_class = type_to_node_base_property_class[target_type]
+            node_property_class = _type_to_node_base_property_class[target_type]
             node_property = node_property_class(required=not optional)
     elif (
         all(
@@ -145,7 +145,7 @@ def _make_node_property_from_field(field, module=None):
             iter(node_property_attributes_candidates)
         )
         target_type, _ = next(iter(target_types))
-        base_node_property_class = type_to_node_base_property_class[target_type]
+        base_node_property_class = _type_to_node_base_property_class[target_type]
         node_property = neomodel.ArrayProperty(
             base_node_property_class(), required=not optional
         )
@@ -183,41 +183,32 @@ def _make_node_property_from_field(field, module=None):
 def _get_node_property_attributes_from_type(type_):
     type_origin, type_args = type_
     type_args = frozenset(type_args)
-    if issubclass(type_origin, base_types):  # base type, we ignore subtypes
+    if issubclass(type_origin, _base_types):  # base type, we ignore subtypes
         property_type = "base"
         ordered = False
         many = False
         target_types = frozenset([type_])
-    elif issubclass(type_origin, array_types):  # array type
+    elif issubclass(type_origin, _array_types):  # array type
         many = True
-        if issubclass(type_origin, ordered_array_types):
+        if issubclass(type_origin, _ordered_array_types):
             ordered = True
         else:
             ordered = False
         if len(type_args) == 1:  # one subtype
             type_arg = next(iter(type_args))
             type_arg_origin = type_arg[0]
-            if issubclass(type_arg_origin, base_types):  # subtype is base type
+            if issubclass(type_arg_origin, _base_types):  # subtype is base type
                 property_type = "array"
             else:  # subtype is not base type, must be a relationship
                 property_type = "relationship"
         else:  # no subtype (Any) or more than one subtype, must be a relationship
             property_type = "relationship"
         target_types = frozenset(type_args)
-    elif fieldz_kb.typeinfo.is_fieldz_class(type_origin) or issubclass(
-        type_origin, enum.Enum
-    ):
+    else:
         many = False
         ordered = False
         property_type = "relationship"
         target_types = frozenset([type_])
-    elif type_origin.__name__ == "NoneValueType":  # TO DELETE
-        many = False
-        ordered = False
-        property_type = "relationship"
-        target_types = frozenset([(str, ())])
-    else:
-        raise ValueError(f"type {type_} not supported")
     return (
         property_type,
         target_types,
@@ -266,7 +257,7 @@ def _make_node_class_from_enum_class(enum_class):
             f"enum of type {enum_class} not supported: types of values must all be the same"
         )
     item_value_type = next(iter(item_value_types))
-    node_property_class = type_to_node_base_property_class.get(item_value_type)
+    node_property_class = _type_to_node_base_property_class.get(item_value_type)
     if node_property_class is not None:
         node_class_dict["value"] = node_property_class()
     node_class = type(node_class_name, node_class_bases, node_class_dict)
@@ -274,13 +265,15 @@ def _make_node_class_from_enum_class(enum_class):
     return node_class
 
 
-def _save_node_from_fieldz_object(
-    fieldz_object, integration_mode, object_to_node, exclude_from_integration
-) -> neomodel.StructuredNode:
+def _make_nodes_from_fieldz_object(
+    fieldz_object, integration_mode, exclude_from_integration, object_to_node
+):
+    nodes = []
+    to_connect = []
     fieldz_class = type(fieldz_object)
     node_class = _get_or_make_node_class_from_class(fieldz_class)
     node = node_class()
-    nodes_to_connect = []
+    nodes.append(node)
     for field in fieldz.fields(fieldz_class):
         field_value = getattr(fieldz_object, field.name)
         if field_value is not None:
@@ -298,71 +291,55 @@ def _save_node_from_fieldz_object(
                     add_order = True
                 else:
                     add_order = False
-                if not isinstance(field_value, array_types):
+                if not isinstance(field_value, _array_types):
                     field_value = [field_value]
                 for index, field_value_element in enumerate(field_value):
-                    if add_order:
-                        order = index
-                    else:
-                        order = None
-                    node_element = save_node_from_object(
+                    sub_nodes, sub_to_connect = make_nodes_from_object(
                         field_value_element,
-                        integration_mode=integration_mode,
-                        object_to_node=object_to_node,
-                        exclude_from_integration=exclude_from_integration,
+                        integration_mode,
+                        exclude_from_integration,
+                        object_to_node,
                     )
-                    nodes_to_connect.append((node_element, field.name, order))
-    node.save()
-    for node_to_connect, node_class_attr_name, order in nodes_to_connect:
-        if order is not None:
-            properties = {"order": order}
-        else:
-            properties = None
-        getattr(node, node_class_attr_name).connect(
-            node_to_connect, properties=properties
-        )
-    return node
+                    nodes += sub_nodes
+                    to_connect += sub_to_connect
+                    if add_order:
+                        properties = {"order": index}
+                    else:
+                        properties = None
+                    to_connect.append((node, field.name, sub_nodes[0], properties))
+    return nodes, to_connect
 
 
-def _save_node_from_enum_object(
-    enum_object, integration_mode, object_to_node, exclude_from_integration
+def _make_nodes_from_enum_object(
+    enum_object, integration_mode, exclude_from_integration, object_to_node
 ):
     enum_class = type(enum_object)
     node_class = _get_or_make_node_class_from_class(enum_class)
     node = node_class()
     node.name = enum_object.name
     node.value = enum_object.value
-    node.save()
-    return node
+    return [node], []
 
 
-def _save_node_from_int_object(
-    int_object, integration_mode, object_to_node, exclude_from_integration
+def _make_nodes_from_int_object(
+    int_object, integration_mode, exclude_from_integration, object_to_node
 ):
     node = Integer(value=int_object)
-    node.save()
-    return node
+    return [node], []
 
 
-_type_to_save_node_function = {
-    int: _save_node_from_int_object,
+_type_to_make_nodes_function = {
+    int: _make_nodes_from_int_object,
 }
 
 
-def register_save_node_function(type_, function):
-    _type_to_save_node_function[type_] = function
+def register_make_nodes_function(type_, function):
+    _type_to_make_nodes_function[type_] = function
 
 
-def save_node_from_object(
-    object_,
-    integration_mode: typing.Literal["hash", "id"] | None = None,
-    object_to_node=None,
-    exclude_from_integration=None,
+def make_nodes_from_object(
+    object_, integration_mode, exclude_from_integration, object_to_node
 ):
-    if object_to_node is None:
-        object_to_node = {}
-    if exclude_from_integration is None:
-        exclude_from_integration = tuple([])
     if integration_mode is not None and not isinstance(
         object_, tuple(exclude_from_integration)
     ):
@@ -375,27 +352,49 @@ def save_node_from_object(
         elif integration_mode == "id":
             node = object_to_node.get(id(object_))
         if node is not None:
-            return node
+            return [node], []
     class_ = type(object_)
-    save_node_function = _type_to_save_node_function.get(class_)
-    if save_node_function is None:  # we use the pre-built save functions
+    make_nodes_function = _type_to_make_nodes_function.get(class_)
+    if make_nodes_function is None:  # we use the pre-built save functions
         if fieldz_kb.typeinfo.is_fieldz_class(class_):
-            save_node_function = _save_node_from_fieldz_object
+            make_nodes_function = _make_nodes_from_fieldz_object
         elif issubclass(class_, enum.Enum):
-            save_node_function = _save_node_from_enum_object
+            make_nodes_function = _make_nodes_from_enum_object
         else:
             raise ValueError(f"object of type {class_} not supported")
-    node = save_node_function(
-        object_, integration_mode, object_to_node, exclude_from_integration
+    nodes, to_connect = make_nodes_function(
+        object_, integration_mode, exclude_from_integration, object_to_node
     )
-    if not isinstance(node, BaseNode):
-        raise ValueError(
-            f"custom node type {type(node)} must be a subclass of BaseNode"
-        )
-    if class_ not in _type_to_node_class:
-        _type_to_node_class[class_] = type(node)
     if integration_mode == "hash":
-        object_to_node[object_] = node
+        object_to_node[object_] = nodes[0]
     elif integration_mode == "id":
-        object_to_node[id(object_)] = node
+        object_to_node[id(object_)] = nodes[0]
+    return nodes, to_connect
+
+
+@neomodel.db.transaction
+def save_from_object(
+    object_,
+    integration_mode: typing.Literal["hash", "id"] | None = None,
+    exclude_from_integration=None,
+):
+    if exclude_from_integration is None:
+        exclude_from_integration = tuple([])
+    object_to_node = {}
+    nodes, to_connect = make_nodes_from_object(
+        object_, integration_mode, exclude_from_integration, object_to_node
+    )
+    saved_node_ids = set()
+    for node in nodes:
+        if id(node) not in saved_node_ids:
+            if not isinstance(node, BaseNode):
+                raise ValueError(
+                    f"node type {type(node)} must be a subclass of BaseNode"
+                )
+            node.save()
+            saved_node_ids.add(id(node))
+    for source_node, source_node_class_attr_name, target_node, properties in to_connect:
+        getattr(source_node, source_node_class_attr_name).connect(
+            target_node, properties=properties
+        )
     return node
