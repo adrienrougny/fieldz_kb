@@ -7,6 +7,7 @@ import enum
 import fieldz
 import inflect
 import neomodel
+import neo4j
 
 import fieldz_kb.typeinfo
 
@@ -29,10 +30,11 @@ class BaseNode(neomodel.StructuredNode):
 
 
 class Integer(BaseNode):
-    value: neomodel.IntegerProperty(required=True)
+    value = neomodel.IntegerProperty(required=True)
 
 
 _type_to_node_class = {}
+_node_class_to_type = {}
 _type_to_node_base_property_class = {
     str: neomodel.StringProperty,
     int: neomodel.IntegerProperty,
@@ -41,16 +43,36 @@ _type_to_node_base_property_class = {
 }
 
 
-def connect(uri, user, password):
-    neomodel.config.DATABASE_URL = f"bolt://{user}:{password}@{uri}"
+def connect(
+    hostname,
+    username,
+    password,
+    protocol="neo4j",
+    port="7687",
+    notifications_min_severity=None,
+):
+    uri = f"{protocol}://{hostname}:{port}"
+    driver = neo4j.GraphDatabase().driver(
+        uri,
+        auth=(username, password),
+        notifications_min_severity=notifications_min_severity,
+    )
+    neomodel.db.set_connection(driver=driver)
+    cypher_query("RETURN 1")  # return an error if not connected
 
 
 def delete_all():
     neomodel.db.cypher_query("MATCH (n) DETACH DELETE n")
 
 
-def _make_node_class_name_from_class(fieldz_class):
-    return fieldz_class.__name__
+def cypher_query(query, params=None, resolve_objects=True):
+    return neomodel.db.cypher_query(
+        query=query, params=params, resolve_objects=resolve_objects
+    )
+
+
+def _make_node_class_name_from_type(type_):
+    return type_.__name__
 
 
 def _make_relationship_type_from_field_name(field_name, many=False):
@@ -217,24 +239,25 @@ def _get_node_property_attributes_from_type(type_):
     )
 
 
-def _get_or_make_node_class_from_class(type_):
+def _get_or_make_node_class_from_type(type_):
     node_class = _type_to_node_class.get(type_)
     if node_class is None:
-        node_class = _make_node_class_from_class(type_)
+        node_class = _make_node_class_from_type(type_)
     return node_class
 
 
-def _make_node_class_from_class(class_):
-    node_class = None
-    if fieldz_kb.typeinfo.is_fieldz_class(class_):
-        node_class = _make_node_class_from_fieldz_class(class_)
-    elif issubclass(class_, enum.Enum):
-        node_class = _make_node_class_from_enum_class(class_)
+def _make_node_class_from_type(type_):
+    if fieldz_kb.typeinfo.is_fieldz_class(type_):
+        node_class = _make_node_class_from_fieldz_class(type_)
+    elif issubclass(type_, enum.Enum):
+        node_class = _make_node_class_from_enum_class(type_)
+    else:
+        raise ValueError(f"type {type_} not supported")
     return node_class
 
 
 def _make_node_class_from_fieldz_class(fieldz_class):
-    node_class_name = _make_node_class_name_from_class(fieldz_class)
+    node_class_name = _make_node_class_name_from_type(fieldz_class)
     node_class_bases = (BaseNode,)
     node_class_dict = {}
     for field in fieldz.fields(fieldz_class):
@@ -243,12 +266,11 @@ def _make_node_class_from_fieldz_class(fieldz_class):
         )
         node_class_dict[field.name] = node_property
     node_class = type(node_class_name, node_class_bases, node_class_dict)
-    _type_to_node_class[fieldz_class] = node_class
     return node_class
 
 
 def _make_node_class_from_enum_class(enum_class):
-    node_class_name = _make_node_class_name_from_class(enum_class)
+    node_class_name = _make_node_class_name_from_type(enum_class)
     node_class_bases = (BaseNode,)
     node_class_dict = {"name": neomodel.StringProperty()}
     item_value_types = set([type(item.value) for item in enum_class])
@@ -261,7 +283,6 @@ def _make_node_class_from_enum_class(enum_class):
     if node_property_class is not None:
         node_class_dict["value"] = node_property_class()
     node_class = type(node_class_name, node_class_bases, node_class_dict)
-    _type_to_node_class[enum_class] = node_class
     return node_class
 
 
@@ -271,7 +292,7 @@ def _make_nodes_from_fieldz_object(
     nodes = []
     to_connect = []
     fieldz_class = type(fieldz_object)
-    node_class = _get_or_make_node_class_from_class(fieldz_class)
+    node_class = _get_or_make_node_class_from_type(fieldz_class)
     node = node_class()
     nodes.append(node)
     for field in fieldz.fields(fieldz_class):
@@ -314,7 +335,7 @@ def _make_nodes_from_enum_object(
     enum_object, integration_mode, exclude_from_integration, object_to_node
 ):
     enum_class = type(enum_object)
-    node_class = _get_or_make_node_class_from_class(enum_class)
+    node_class = _get_or_make_node_class_from_type(enum_class)
     node = node_class()
     node.name = enum_object.name
     node.value = enum_object.value
@@ -365,6 +386,11 @@ def make_nodes_from_object(
     nodes, to_connect = make_nodes_function(
         object_, integration_mode, exclude_from_integration, object_to_node
     )
+    node_class = type(nodes[0])
+    if type(object_) not in _type_to_node_class:
+        _type_to_node_class[class_] = node_class
+    if node_class not in _node_class_to_type:
+        _node_class_to_type[node_class] = class_
     if integration_mode == "hash":
         object_to_node[object_] = nodes[0]
     elif integration_mode == "id":
@@ -398,3 +424,114 @@ def save_from_object(
             target_node, properties=properties
         )
     return node
+
+
+def _make_int_from_node(node):
+    return node.value
+
+
+_node_class_to_make_object_function = {
+    Integer: _make_int_from_node,
+}
+
+
+def register_make_object_function(node_class, function):
+    _node_class_to_make_object_function[node_class] = function
+
+
+def _get_array_type_from_field(field):
+    array_type = None
+    default_factory = field.default_factory
+    if not fieldz_kb.typeinfo.is_missing_type(default_factory):
+        array_type = default_factory
+    else:
+        types = fieldz_kb.typeinfo.get_types_from_type_hint(field.type)
+        for type_, _ in types:
+            if issubclass(type_, _array_types):
+                array_type = type_
+    if array_type is None:
+        raise ValueError(f"could not find appropriate type for field {field.name}")
+    return array_type
+
+
+def _make_fieldz_object_from_node(node):
+    node_class = type(node)
+    fieldz_class = _node_class_to_type.get(node_class)
+    if fieldz_class is None:
+        raise ValueError(
+            f"could not find an appropriate class for node class {node_class}"
+        )
+    fieldz_object_attr_values = {}
+    for field in fieldz.fields(fieldz_class):
+        node_class_property = getattr(node_class, field.name)
+        node_attr_value = getattr(node, field.name)
+        if isinstance(node_class_property, neomodel.properties.ArrayProperty):
+            if node_attr_value is None:
+                field_value = None
+            else:
+                array_type = _get_array_type_from_field(field)
+                field_value = array_type(
+                    [make_object_from_node(element) for element in node_attr_value]
+                )
+        elif isinstance(
+            node_class_property, neomodel.properties.Property
+        ):  # not many, one base type
+            field_value = node_attr_value
+        else:  # a relationship
+            if node_class_property.manager in [neomodel.ZeroOrMore, neomodel.OneOrMore]:
+                field_value = node_attr_value.all()
+                if not field_value and field.default is None:
+                    field_value = None
+                else:
+                    if issubclass(
+                        node_class_property.definition["model"], OrderedRelationshipTo
+                    ):
+                        relationships = [
+                            node_attr_value.relationship(node) for node in field_value
+                        ]
+                        field_value = [
+                            relationship.end_node()
+                            for relationship in sorted(
+                                relationships, key=lambda element: element.order
+                            )
+                        ]
+                    array_type = _get_array_type_from_field(field)
+                    field_value = array_type(
+                        [make_object_from_node(element) for element in field_value]
+                    )
+            else:
+                field_value = node_attr_value.single()
+                if field_value is not None:
+                    field_value = make_object_from_node(field_value)
+        fieldz_object_attr_values[field.name] = field_value
+    fieldz_object = fieldz_class(**fieldz_object_attr_values)
+    return fieldz_object
+
+
+def _make_enum_object_from_node(node):
+    node_class = type(node)
+    enum_class = _node_class_to_type.get(node_class)
+    if enum_class is None:
+        raise ValueError(
+            f"could not find an appropriate class for node class {node_class}"
+        )
+    return getattr(enum_class, node.name)
+
+
+def make_object_from_node(node):
+    node_class = type(node)
+    make_object_function = _node_class_to_make_object_function.get(node_class)
+    if make_object_function is None:
+        type_ = _node_class_to_type.get(node_class)
+        if type_ is None:
+            raise ValueError(
+                f"could not find an appropriate class for node class {node_class}"
+            )
+        if fieldz_kb.typeinfo.is_fieldz_class(type_):
+            make_object_function = _make_fieldz_object_from_node
+        elif issubclass(type_, enum.Enum):
+            make_object_function = _make_enum_object_from_node
+        else:
+            raise ValueError(f"object of type {type_} not supported")
+    object_ = make_object_function(node)
+    return object_
