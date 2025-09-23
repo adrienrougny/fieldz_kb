@@ -4,11 +4,15 @@ import types
 import fieldz
 
 
-def is_fieldz_class(class_):
+def is_fieldz_class(type_):
     for adapter in fieldz._functions.ADAPTERS:
-        if adapter.is_instance(class_):
+        if adapter.is_instance(type_):
             return True
     return False
+
+
+def is_missing_type(type_):
+    return type_ is fieldz._types._MISSING_TYPE.MISSING
 
 
 def get_types_from_type_hint(type_hint, module=None):
