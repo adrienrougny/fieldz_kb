@@ -17,6 +17,7 @@ import fieldz_kb.typeinfo
 _base_types = (int, str, float, bool)
 _array_types = (list, tuple, set, frozenset)
 _ordered_array_types = (list, tuple)
+_type_to_node_class = {}
 
 
 class OrderedRelationshipTo(neomodel.StructuredRel):
@@ -35,16 +36,28 @@ class Integer(BaseNode):
     value = neomodel.IntegerProperty(required=True)
 
 
+_type_to_node_class[int] = Integer
+
+
 class String(BaseNode):
     value = neomodel.StringProperty(required=True)
+
+
+_type_to_node_class[str] = String
 
 
 class Float(BaseNode):
     value = neomodel.FloatProperty(required=True)
 
 
+_type_to_node_class[float] = Float
+
+
 class Boolean(BaseNode):
     value = neomodel.BooleanProperty(required=True)
+
+
+_type_to_node_class[bool] = Boolean
 
 
 class Item(BaseNode):
@@ -97,7 +110,6 @@ class Tuple(Sequence):
     pass
 
 
-_type_to_node_class = {}
 _node_class_to_type = {}
 _type_to_node_base_property_class = {
     str: neomodel.StringProperty,
@@ -272,15 +284,12 @@ def _make_node_property_from_field(
                 for target_type in node_property_attributes[1]:
                     target_type_origin = target_type[0]
                     if target_type_origin not in guard:
-                        print(f"NOT IN GUARD {target_type_origin}")
                         guard.append(target_type_origin)
                         get_or_make_node_class_from_type(
                             target_type_origin,
                             make_node_classes_recursively=make_node_classes_recursively,
                             guard=guard,
                         )
-                    else:
-                        print(f"IN GUARD {target_type_origin}")
     return node_property
 
 
@@ -326,7 +335,6 @@ def get_or_make_node_class_from_type(
 ):
     if guard is None:
         guard = []
-    print(f"MAKING FOR {type_}")
     node_class = _type_to_node_class.get(type_)
     if node_class is None:
         node_class = _make_node_class_from_type(
@@ -335,9 +343,6 @@ def get_or_make_node_class_from_type(
             guard=guard,
         )
         _type_to_node_class[type_] = node_class
-        print(f"MADE {node_class} for {type_}")
-    else:
-        print(f"GOT {node_class} for {type_}")
     return node_class
 
 
@@ -386,7 +391,6 @@ def _make_node_class_from_fieldz_class(
             guard=guard,
         )
         node_class_dict[field.name] = node_property
-    print(fieldz_class)
     node_class = type(node_class_name, node_class_bases, node_class_dict)
     return node_class
 
