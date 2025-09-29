@@ -3,6 +3,7 @@ import typing
 import re
 import collections.abc
 import enum
+import abc
 
 import fieldz
 import inflect
@@ -166,7 +167,11 @@ def _make_relationship_type_from_field_name(field_name, many=False):
     return relationship_type
 
 
-def _make_node_property_from_field(field, module=None):
+def _make_node_property_from_field(
+    field, module=None, make_node_classes_recursively=True, guard=None
+):
+    if guard is None:
+        guard = []
     type_hint = field.type
     types_ = fieldz_kb.typeinfo.get_types_from_type_hint(type_hint, module=module)
     node_property_attributes_candidates = set()
@@ -262,6 +267,20 @@ def _make_node_property_from_field(field, module=None):
         node_property = neomodel.RelationshipTo(
             BaseNode, relationship_type, cardinality, model=model
         )
+        if make_node_classes_recursively:
+            for node_property_attributes in node_property_attributes_candidates:
+                for target_type in node_property_attributes[1]:
+                    target_type_origin = target_type[0]
+                    if target_type_origin not in guard:
+                        print(f"NOT IN GUARD {target_type_origin}")
+                        guard.append(target_type_origin)
+                        get_or_make_node_class_from_type(
+                            target_type_origin,
+                            make_node_classes_recursively=make_node_classes_recursively,
+                            guard=guard,
+                        )
+                    else:
+                        print(f"IN GUARD {target_type_origin}")
     return node_property
 
 
@@ -302,17 +321,35 @@ def _get_node_property_attributes_from_type(type_):
     )
 
 
-def _get_or_make_node_class_from_type(type_):
+def get_or_make_node_class_from_type(
+    type_, make_node_classes_recursively=True, guard=None
+):
+    if guard is None:
+        guard = []
+    print(f"MAKING FOR {type_}")
     node_class = _type_to_node_class.get(type_)
     if node_class is None:
-        node_class = _make_node_class_from_type(type_)
+        node_class = _make_node_class_from_type(
+            type_,
+            make_node_classes_recursively=make_node_classes_recursively,
+            guard=guard,
+        )
         _type_to_node_class[type_] = node_class
+        print(f"MADE {node_class} for {type_}")
+    else:
+        print(f"GOT {node_class} for {type_}")
     return node_class
 
 
-def _make_node_class_from_type(type_):
+def _make_node_class_from_type(type_, make_node_classes_recursively=True, guard=None):
+    if guard is None:
+        guard = []
     if fieldz_kb.typeinfo.is_fieldz_class(type_):
-        node_class = _make_node_class_from_fieldz_class(type_)
+        node_class = _make_node_class_from_fieldz_class(
+            type_,
+            make_node_classes_recursively=make_node_classes_recursively,
+            guard=guard,
+        )
     elif issubclass(type_, enum.Enum):
         node_class = _make_node_class_from_enum_class(type_)
     else:
@@ -320,15 +357,36 @@ def _make_node_class_from_type(type_):
     return node_class
 
 
-def _make_node_class_from_fieldz_class(fieldz_class):
+def _make_node_class_from_fieldz_class(
+    fieldz_class, make_node_classes_recursively=True, guard=None
+):
+    if guard is None:
+        guard = []
     node_class_name = _make_node_class_name_from_type(fieldz_class)
-    node_class_bases = (BaseNode,)
+    fieldz_class_bases = fieldz_class.__bases__
+    node_class_bases = tuple(
+        [
+            get_or_make_node_class_from_type(
+                base_class,
+                make_node_classes_recursively=make_node_classes_recursively,
+                guard=guard,
+            )
+            for base_class in fieldz_class_bases
+            if base_class not in (object, abc.ABC)
+        ]
+    )
+    if not node_class_bases:
+        node_class_bases = (BaseNode,)
     node_class_dict = {}
     for field in fieldz.fields(fieldz_class):
         node_property = _make_node_property_from_field(
-            field, module=fieldz_class.__module__
+            field,
+            module=fieldz_class.__module__,
+            make_node_classes_recursively=make_node_classes_recursively,
+            guard=guard,
         )
         node_class_dict[field.name] = node_property
+    print(fieldz_class)
     node_class = type(node_class_name, node_class_bases, node_class_dict)
     return node_class
 
@@ -356,7 +414,9 @@ def _make_nodes_from_fieldz_object(
     nodes = []
     to_connect = []
     fieldz_class = type(fieldz_object)
-    node_class = _get_or_make_node_class_from_type(fieldz_class)
+    node_class = get_or_make_node_class_from_type(
+        fieldz_class, make_node_classes_recursively=False
+    )
     node = node_class()
     nodes.append(node)
     for field in fieldz.fields(fieldz_class):
@@ -399,7 +459,7 @@ def _make_nodes_from_enum_object(
     enum_object, integration_mode, exclude_from_integration, object_to_node
 ):
     enum_class = type(enum_object)
-    node_class = _get_or_make_node_class_from_type(enum_class)
+    node_class = get_or_make_node_class_from_type(enum_class)
     node = node_class()
     node.name = enum_object.name
     node.value = enum_object.value
