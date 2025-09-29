@@ -8,6 +8,7 @@ import fieldz
 import inflect
 import neomodel
 import neo4j
+import frozendict
 
 import fieldz_kb.typeinfo
 
@@ -31,6 +32,68 @@ class BaseNode(neomodel.StructuredNode):
 
 class Integer(BaseNode):
     value = neomodel.IntegerProperty(required=True)
+
+
+class String(BaseNode):
+    value = neomodel.StringProperty(required=True)
+
+
+class Float(BaseNode):
+    value = neomodel.FloatProperty(required=True)
+
+
+class Boolean(BaseNode):
+    value = neomodel.BooleanProperty(required=True)
+
+
+class Item(BaseNode):
+    key = neomodel.RelationshipTo(BaseNode, "HAS_KEY", neomodel.One)
+    value = neomodel.RelationshipTo(BaseNode, "HAS_VALUE", neomodel.One)
+
+
+class Mapping(BaseNode):
+    items = neomodel.RelationshipTo(
+        Item, "HAS_ITEM", neomodel.ZeroOrMore, model=UnorderedRelationshipTo
+    )
+
+
+class Dict(Mapping):
+    pass
+
+
+class FrozenDict(Mapping):
+    pass
+
+
+class Bag(BaseNode):
+    elements = neomodel.RelationshipTo(
+        BaseNode, "HAS_ELEMENT", neomodel.ZeroOrMore, model=OrderedRelationshipTo
+    )
+
+
+class Set(Bag):
+    pass
+
+
+class FrozenSet(Bag):
+    pass
+
+
+class Sequence(BaseNode):
+    elements = neomodel.RelationshipTo(
+        BaseNode,
+        "HAS_ELEMENT",
+        neomodel.ZeroOrMore,
+        model=OrderedRelationshipTo,
+    )
+
+
+class List(Sequence):
+    pass
+
+
+class Tuple(Sequence):
+    pass
 
 
 _type_to_node_class = {}
@@ -243,6 +306,7 @@ def _get_or_make_node_class_from_type(type_):
     node_class = _type_to_node_class.get(type_)
     if node_class is None:
         node_class = _make_node_class_from_type(type_)
+        _type_to_node_class[type_] = node_class
     return node_class
 
 
@@ -349,8 +413,185 @@ def _make_nodes_from_int_object(
     return [node], []
 
 
+def _make_nodes_from_string_object(
+    string_object, integration_mode, exclude_from_integration, object_to_node
+):
+    node = String(value=string_object)
+    return [node], []
+
+
+def _make_nodes_from_float_object(
+    float_object, integration_mode, exclude_from_integration, object_to_node
+):
+    node = Float(value=float_object)
+    return [node], []
+
+
+def _make_nodes_from_bool_object(
+    bool_object, integration_mode, exclude_from_integration, object_to_node
+):
+    node = Boolean(value=bool_object)
+    return [node], []
+
+
+def _make_nodes_from_dict_item(
+    key, value, integration_mode, exclude_from_integration, object_to_node
+):
+    node = Item()
+    nodes = [node]
+    to_connect = []
+    nodes_key, to_connect_key = make_nodes_from_object(
+        key,
+        integration_mode=integration_mode,
+        exclude_from_integration=exclude_from_integration,
+        object_to_node=object_to_node,
+    )
+    nodes += nodes_key
+    to_connect += to_connect_key
+    node_key = nodes_key[0]
+    to_connect.append((node, "key", node_key, {}))
+    nodes_value, to_connect_value = make_nodes_from_object(
+        value,
+        integration_mode=integration_mode,
+        exclude_from_integration=exclude_from_integration,
+        object_to_node=object_to_node,
+    )
+    nodes += nodes_value
+    to_connect += to_connect_value
+    node_value = nodes_value[0]
+    to_connect.append((node, "value", node_value, {}))
+    return nodes, to_connect
+
+
+def _make_nodes_from_dict_object(
+    dict_object, integration_mode, exclude_from_integration, object_to_node
+):
+    node = Dict()
+    nodes = [node]
+    to_connect = []
+    for key, value in dict_object.items():
+        nodes_item, to_connect_item = _make_nodes_from_dict_item(
+            key,
+            value,
+            integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+            object_to_node=object_to_node,
+        )
+        nodes += nodes_item
+        to_connect += to_connect_item
+        node_item = nodes_item[0]
+        to_connect.append((node, "items", node_item, {}))
+    return nodes, to_connect
+
+
+def _make_nodes_from_frozendict_object(
+    dict_object, integration_mode, exclude_from_integration, object_to_node
+):
+    node = FrozenDict()
+    nodes = [node]
+    to_connect = []
+    for key, value in dict_object.items():
+        nodes_item, to_connect_item = _make_nodes_from_dict_item(
+            key,
+            value,
+            integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+            object_to_node=object_to_node,
+        )
+        nodes += nodes_item
+        to_connect += to_connect_item
+        node_item = nodes_item[0]
+        to_connect.append((node, "items", node_item, {}))
+    return nodes, to_connect
+
+
+def _make_nodes_from_set_object(
+    set_object, integration_mode, exclude_from_integration, object_to_node
+):
+    to_connect = []
+    node = Set()
+    nodes = [node]
+    for element in set_object:
+        nodes_element, to_connect_element = make_nodes_from_object(
+            element,
+            integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+            object_to_node=object_to_node,
+        )
+        node_element = nodes_element[0]
+        nodes.append(node_element)
+        to_connect.append((node, "elements", node_element, {}))
+    return nodes, to_connect
+
+
+def _make_nodes_from_frozenset_object(
+    set_object, integration_mode, exclude_from_integration, object_to_node
+):
+    to_connect = []
+    node = FrozenSet()
+    nodes = [node]
+    for element in set_object:
+        nodes_element, to_connect_element = make_nodes_from_object(
+            element,
+            integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+            object_to_node=object_to_node,
+        )
+        node_element = nodes_element[0]
+        nodes.append(node_element)
+        to_connect.append((node, "elements", node_element, {}))
+    return nodes, to_connect
+
+
+def _make_nodes_from_list_object(
+    list_object, integration_mode, exclude_from_integration, object_to_node
+):
+    to_connect = []
+    node = List()
+    nodes = [node]
+    for index, element in enumerate(list_object):
+        nodes_element, to_connect_element = make_nodes_from_object(
+            element,
+            integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+            object_to_node=object_to_node,
+        )
+        node_element = nodes_element[0]
+        nodes.append(node_element)
+        to_connect.append((node, "elements", node_element, {"order": index}))
+    return nodes, to_connect
+
+
+def _make_nodes_from_tuple_object(
+    list_object, integration_mode, exclude_from_integration, object_to_node
+):
+    to_connect = []
+    node = Tuple()
+    nodes = [node]
+    for index, element in enumerate(list_object):
+        nodes_element, to_connect_element = make_nodes_from_object(
+            element,
+            integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+            object_to_node=object_to_node,
+        )
+        node_element = nodes_element[0]
+        nodes.append(node_element)
+        to_connect.append((node, "elements", node_element, {"order": index}))
+    return nodes, to_connect
+
+
 _type_to_make_nodes_function = {
     int: _make_nodes_from_int_object,
+    str: _make_nodes_from_string_object,
+    float: _make_nodes_from_float_object,
+    bool: _make_nodes_from_bool_object,
+    dict: _make_nodes_from_dict_object,
+    frozendict.frozendict: _make_nodes_from_frozendict_object,
+    set: _make_nodes_from_set_object,
+    frozenset: _make_nodes_from_frozenset_object,
+    list: _make_nodes_from_list_object,
+    tuple: _make_nodes_from_tuple_object,
 }
 
 
@@ -359,10 +600,17 @@ def register_make_nodes_function(type_, function):
 
 
 def make_nodes_from_object(
-    object_, integration_mode, exclude_from_integration, object_to_node
+    object_,
+    integration_mode: typing.Literal["hash", "id"] | None = None,
+    exclude_from_integration=None,
+    object_to_node=None,
 ):
+    if exclude_from_integration is None:
+        exclude_from_integration = tuple()
+    if object_to_node is None:
+        object_to_node = {}
     if integration_mode is not None and not isinstance(
-        object_, tuple(exclude_from_integration)
+        object_, exclude_from_integration
     ):
         if integration_mode == "hash":
             if not isinstance(object_, collections.abc.Hashable):
@@ -384,7 +632,10 @@ def make_nodes_from_object(
         else:
             raise ValueError(f"object of type {class_} not supported")
     nodes, to_connect = make_nodes_function(
-        object_, integration_mode, exclude_from_integration, object_to_node
+        object_,
+        integration_mode=integration_mode,
+        exclude_from_integration=exclude_from_integration,
+        object_to_node=object_to_node,
     )
     node_class = type(nodes[0])
     if type(object_) not in _type_to_node_class:
@@ -405,7 +656,7 @@ def save_from_object(
     exclude_from_integration=None,
 ):
     if exclude_from_integration is None:
-        exclude_from_integration = tuple([])
+        exclude_from_integration = tuple()
     object_to_node = {}
     nodes, to_connect = make_nodes_from_object(
         object_, integration_mode, exclude_from_integration, object_to_node
@@ -426,12 +677,35 @@ def save_from_object(
     return node
 
 
-def _make_int_from_node(node):
+def _make_base_object_from_node(node):
     return node.value
 
 
+def _make_dict_item_from_node(node):
+    key = make_object_from_node(node.key.single())
+    value = make_object_from_node(node.value.single())
+    return key, value
+
+
+def _make_dict_object_from_node(node):
+    dict_object = {}
+    for node_item in node.items.all():
+        key, value = _make_dict_item_from_node(node_item)
+        dict_object[key] = value
+    return dict_object
+
+
+def _make_frozendict_object_from_node(node):
+    return frozendict.frozendict(_make_dict_object_from_node(node))
+
+
 _node_class_to_make_object_function = {
-    Integer: _make_int_from_node,
+    Integer: _make_base_object_from_node,
+    String: _make_base_object_from_node,
+    Float: _make_base_object_from_node,
+    Boolean: _make_base_object_from_node,
+    Dict: _make_dict_object_from_node,
+    FrozenDict: _make_frozendict_object_from_node,
 }
 
 
@@ -486,14 +760,28 @@ def _make_fieldz_object_from_node(node):
                     if issubclass(
                         node_class_property.definition["model"], OrderedRelationshipTo
                     ):
-                        relationships = [
-                            node_attr_value.relationship(node) for node in field_value
-                        ]
-                        field_value = [
-                            relationship.end_node()
-                            for relationship in sorted(
-                                relationships, key=lambda element: element.order
+                        # we remove duplicates, we will get them back with relationships
+                        element_id_to_node = {}
+                        for field_value_element in field_value:
+                            element_id_to_node[field_value_element.element_id] = (
+                                field_value_element
                             )
+                        field_value = list(element_id_to_node.values())
+                        # we get the relationships, might be more than one by node
+                        relationships = sum(
+                            [
+                                node_attr_value.all_relationships(node)
+                                for node in field_value
+                            ],
+                            [],
+                        )
+                        # we sort the relationships following their order attribute
+                        relationships = sorted(
+                            relationships, key=lambda relationship: relationship.order
+                        )
+                        # we get the nodes, ordered
+                        field_value = [
+                            relationship.end_node() for relationship in relationships
                         ]
                     array_type = _get_array_type_from_field(field)
                     field_value = array_type(
