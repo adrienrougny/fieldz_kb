@@ -378,6 +378,7 @@ def _make_node_class_from_fieldz_class(
             )
             for base_class in fieldz_class_bases
             if base_class not in (object, abc.ABC)
+            and not base_class.__name__.startswith("_")
         ]
     )
     if not node_class_bases:
@@ -741,7 +742,7 @@ def save_from_object(
     return node
 
 
-def _make_base_object_from_node(node):
+def _make_base_object_from_node(node, node_element_id_to_object):
     return node.value
 
 
@@ -792,7 +793,7 @@ def _get_array_type_from_field(field):
     return array_type
 
 
-def _make_fieldz_object_from_node(node):
+def _make_fieldz_object_from_node(node, node_element_id_to_object):
     node_class = type(node)
     fieldz_class = _node_class_to_type.get(node_class)
     if fieldz_class is None:
@@ -809,7 +810,12 @@ def _make_fieldz_object_from_node(node):
             if isinstance(node_class_property, neomodel.properties.ArrayProperty):
                 array_type = _get_array_type_from_field(field)
                 field_value = array_type(
-                    [make_object_from_node(element) for element in node_attr_value]
+                    [
+                        make_object_from_node(
+                            element, node_element_id_to_object=node_element_id_to_object
+                        )
+                        for element in node_attr_value
+                    ]
                 )
             elif isinstance(
                 node_class_property, neomodel.properties.Property
@@ -855,18 +861,27 @@ def _make_fieldz_object_from_node(node):
                             ]
                         array_type = _get_array_type_from_field(field)
                         field_value = array_type(
-                            [make_object_from_node(element) for element in field_value]
+                            [
+                                make_object_from_node(
+                                    element,
+                                    node_element_id_to_object=node_element_id_to_object,
+                                )
+                                for element in field_value
+                            ]
                         )
                 else:
                     field_value = node_attr_value.single()
                     if field_value is not None:
-                        field_value = make_object_from_node(field_value)
+                        field_value = make_object_from_node(
+                            field_value,
+                            node_element_id_to_object=node_element_id_to_object,
+                        )
         fieldz_object_attr_values[field.name] = field_value
     fieldz_object = fieldz_class(**fieldz_object_attr_values)
     return fieldz_object
 
 
-def _make_enum_object_from_node(node):
+def _make_enum_object_from_node(node, node_element_id_to_object):
     node_class = type(node)
     enum_class = _node_class_to_type.get(node_class)
     if enum_class is None:
@@ -876,7 +891,12 @@ def _make_enum_object_from_node(node):
     return getattr(enum_class, node.name)
 
 
-def make_object_from_node(node):
+def make_object_from_node(node, node_element_id_to_object=None):
+    if node_element_id_to_object is None:
+        node_element_id_to_object = {}
+    object_ = node_element_id_to_object.get(node.element_id)
+    if object_ is not None:
+        return object_
     node_class = type(node)
     make_object_function = _node_class_to_make_object_function.get(node_class)
     if make_object_function is None:
@@ -891,5 +911,8 @@ def make_object_from_node(node):
             make_object_function = _make_enum_object_from_node
         else:
             raise ValueError(f"object of type {type_} not supported")
-    object_ = make_object_function(node)
+    object_ = make_object_function(
+        node, node_element_id_to_object=node_element_id_to_object
+    )
+    node_element_id_to_object[node.element_id] = object_
     return object_
