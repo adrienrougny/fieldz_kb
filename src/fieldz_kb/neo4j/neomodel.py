@@ -801,60 +801,66 @@ def _make_fieldz_object_from_node(node):
         )
     fieldz_object_attr_values = {}
     for field in fieldz.fields(fieldz_class):
-        node_class_property = getattr(node_class, field.name)
         node_attr_value = getattr(node, field.name)
-        if isinstance(node_class_property, neomodel.properties.ArrayProperty):
-            if node_attr_value is None:
-                field_value = None
-            else:
+        if node_attr_value is None:
+            field_value = None
+        else:
+            node_class_property = getattr(node_class, field.name)
+            if isinstance(node_class_property, neomodel.properties.ArrayProperty):
                 array_type = _get_array_type_from_field(field)
                 field_value = array_type(
                     [make_object_from_node(element) for element in node_attr_value]
                 )
-        elif isinstance(
-            node_class_property, neomodel.properties.Property
-        ):  # not many, one base type
-            field_value = node_attr_value
-        else:  # a relationship
-            if node_class_property.manager in [neomodel.ZeroOrMore, neomodel.OneOrMore]:
-                field_value = node_attr_value.all()
-                if not field_value and field.default is None:
-                    field_value = None
-                else:
-                    if issubclass(
-                        node_class_property.definition["model"], OrderedRelationshipTo
-                    ):
-                        # we remove duplicates, we will get them back with relationships
-                        element_id_to_node = {}
-                        for field_value_element in field_value:
-                            element_id_to_node[field_value_element.element_id] = (
-                                field_value_element
+            elif isinstance(
+                node_class_property, neomodel.properties.Property
+            ):  # not many, one base type
+                field_value = node_attr_value
+            else:  # a relationship
+                if node_class_property.manager in [
+                    neomodel.ZeroOrMore,
+                    neomodel.OneOrMore,
+                ]:
+                    field_value = node_attr_value.all()
+                    if not field_value and field.default is None:
+                        field_value = None
+                    else:
+                        if issubclass(
+                            node_class_property.definition["model"],
+                            OrderedRelationshipTo,
+                        ):
+                            # we remove duplicates, we will get them back with relationships
+                            element_id_to_node = {}
+                            for field_value_element in field_value:
+                                element_id_to_node[field_value_element.element_id] = (
+                                    field_value_element
+                                )
+                            field_value = list(element_id_to_node.values())
+                            # we get the relationships, might be more than one by node
+                            relationships = sum(
+                                [
+                                    node_attr_value.all_relationships(node)
+                                    for node in field_value
+                                ],
+                                [],
                             )
-                        field_value = list(element_id_to_node.values())
-                        # we get the relationships, might be more than one by node
-                        relationships = sum(
-                            [
-                                node_attr_value.all_relationships(node)
-                                for node in field_value
-                            ],
-                            [],
+                            # we sort the relationships following their order attribute
+                            relationships = sorted(
+                                relationships,
+                                key=lambda relationship: relationship.order,
+                            )
+                            # we get the nodes, ordered
+                            field_value = [
+                                relationship.end_node()
+                                for relationship in relationships
+                            ]
+                        array_type = _get_array_type_from_field(field)
+                        field_value = array_type(
+                            [make_object_from_node(element) for element in field_value]
                         )
-                        # we sort the relationships following their order attribute
-                        relationships = sorted(
-                            relationships, key=lambda relationship: relationship.order
-                        )
-                        # we get the nodes, ordered
-                        field_value = [
-                            relationship.end_node() for relationship in relationships
-                        ]
-                    array_type = _get_array_type_from_field(field)
-                    field_value = array_type(
-                        [make_object_from_node(element) for element in field_value]
-                    )
-            else:
-                field_value = node_attr_value.single()
-                if field_value is not None:
-                    field_value = make_object_from_node(field_value)
+                else:
+                    field_value = node_attr_value.single()
+                    if field_value is not None:
+                        field_value = make_object_from_node(field_value)
         fieldz_object_attr_values[field.name] = field_value
     fieldz_object = fieldz_class(**fieldz_object_attr_values)
     return fieldz_object
