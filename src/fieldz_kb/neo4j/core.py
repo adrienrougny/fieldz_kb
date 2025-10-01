@@ -17,7 +17,6 @@ import fieldz_kb.typeinfo
 _base_types = (int, str, float, bool)
 _array_types = (list, tuple, set, frozenset)
 _ordered_array_types = (list, tuple)
-_type_to_node_class = {}
 
 
 class OrderedRelationshipTo(neomodel.StructuredRel):
@@ -36,28 +35,16 @@ class Integer(BaseNode):
     value = neomodel.IntegerProperty(required=True)
 
 
-_type_to_node_class[int] = Integer
-
-
 class String(BaseNode):
     value = neomodel.StringProperty(required=True)
-
-
-_type_to_node_class[str] = String
 
 
 class Float(BaseNode):
     value = neomodel.FloatProperty(required=True)
 
 
-_type_to_node_class[float] = Float
-
-
 class Boolean(BaseNode):
     value = neomodel.BooleanProperty(required=True)
-
-
-_type_to_node_class[bool] = Boolean
 
 
 class Item(BaseNode):
@@ -67,7 +54,7 @@ class Item(BaseNode):
 
 class Mapping(BaseNode):
     items = neomodel.RelationshipTo(
-        Item, "HAS_ITEM", neomodel.ZeroOrMore, model=UnorderedRelationshipTo
+        Item, "HAS_ITEM", neomodel.ZeroOrMore, model=OrderedRelationshipTo
     )
 
 
@@ -80,8 +67,8 @@ class FrozenDict(Mapping):
 
 
 class Bag(BaseNode):
-    elements = neomodel.RelationshipTo(
-        BaseNode, "HAS_ELEMENT", neomodel.ZeroOrMore, model=OrderedRelationshipTo
+    items = neomodel.RelationshipTo(
+        BaseNode, "HAS_ITEM", neomodel.ZeroOrMore, model=OrderedRelationshipTo
     )
 
 
@@ -94,9 +81,9 @@ class FrozenSet(Bag):
 
 
 class Sequence(BaseNode):
-    elements = neomodel.RelationshipTo(
+    items = neomodel.RelationshipTo(
         BaseNode,
-        "HAS_ELEMENT",
+        "HAS_ITEM",
         neomodel.ZeroOrMore,
         model=OrderedRelationshipTo,
     )
@@ -110,7 +97,28 @@ class Tuple(Sequence):
     pass
 
 
-_node_class_to_type = {}
+_type_to_node_class = {
+    int: Integer,
+    str: String,
+    float: Float,
+    list: List,
+    tuple: Tuple,
+    set: Set,
+    frozenset: FrozenSet,
+    bool: Boolean,
+}
+_node_class_to_type = {
+    Integer: int,
+    String: str,
+    Float: float,
+    Boolean: bool,
+    List: list,
+    Tuple: tuple,
+    Set: set,
+    FrozenSet: frozenset,
+    Dict: dict,
+    FrozenDict: frozendict,
+}
 _type_to_node_base_property_class = {
     str: neomodel.StringProperty,
     int: neomodel.IntegerProperty,
@@ -125,9 +133,14 @@ def connect(
     password,
     protocol="neo4j",
     port="7687",
-    notifications_min_severity=None,
+    notifications_min_severity: typing.Literal["off", "warning", "information"]
+    | None = None,
 ):
     uri = f"{protocol}://{hostname}:{port}"
+    if notifications_min_severity is not None:
+        notifications_min_severity = neo4j.NotificationMinimumSeverity[
+            notifications_min_severity.upper()
+        ]
     driver = neo4j.GraphDatabase().driver(
         uri,
         auth=(username, password),
@@ -284,7 +297,6 @@ def _make_node_property_from_field(
                 for target_type in node_property_attributes[1]:
                     target_type_origin = target_type[0]
                     if target_type_origin not in guard:
-                        guard.append(target_type_origin)
                         get_or_make_node_class_from_type(
                             target_type_origin,
                             make_node_classes_recursively=make_node_classes_recursively,
@@ -334,15 +346,17 @@ def get_or_make_node_class_from_type(
     type_, make_node_classes_recursively=True, guard=None
 ):
     if guard is None:
-        guard = []
+        guard = set([])
     node_class = _type_to_node_class.get(type_)
     if node_class is None:
+        guard.add(type_)
         node_class = _make_node_class_from_type(
             type_,
             make_node_classes_recursively=make_node_classes_recursively,
             guard=guard,
         )
         _type_to_node_class[type_] = node_class
+        _node_class_to_type[node_class] = type_
     return node_class
 
 
@@ -379,6 +393,7 @@ def _make_node_class_from_fieldz_class(
             for base_class in fieldz_class_bases
             if base_class not in (object, abc.ABC)
             and not base_class.__name__.startswith("_")
+            and base_class.__name__ != fieldz_class.__name__
         ]
     )
     if not node_class_bases:
@@ -739,29 +754,33 @@ def save_from_object(
         getattr(source_node, source_node_class_attr_name).connect(
             target_node, properties=properties
         )
-    return node
 
 
 def _make_base_object_from_node(node, node_element_id_to_object):
     return node.value
 
 
-def _make_dict_item_from_node(node):
-    key = make_object_from_node(node.key.single())
-    value = make_object_from_node(node.value.single())
+def _make_dict_item_from_node(node, node_element_id_to_object):
+    key = make_object_from_node(node.key.single(), node_element_id_to_object)
+    value = make_object_from_node(node.value.single(), node_element_id_to_object)
     return key, value
 
 
-def _make_dict_object_from_node(node):
+def _make_dict_object_from_node(node, node_element_id_to_object):
     dict_object = {}
     for node_item in node.items.all():
-        key, value = _make_dict_item_from_node(node_item)
+        key, value = _make_dict_item_from_node(node_item, node_element_id_to_object)
         dict_object[key] = value
     return dict_object
 
 
-def _make_frozendict_object_from_node(node):
-    return frozendict.frozendict(_make_dict_object_from_node(node))
+def _make_sequence_or_bag_object_from_node(node, node_element_id_to_object):
+    objects = [
+        make_object_from_node(node_item, node_element_id_to_object)
+        for node_item in node.items.all()
+    ]
+    sequence_type = _node_class_to_type[type(node)]
+    return sequence_type(objects)
 
 
 _node_class_to_make_object_function = {
@@ -770,7 +789,11 @@ _node_class_to_make_object_function = {
     Float: _make_base_object_from_node,
     Boolean: _make_base_object_from_node,
     Dict: _make_dict_object_from_node,
-    FrozenDict: _make_frozendict_object_from_node,
+    FrozenDict: _make_sequence_or_bag_object_from_node,
+    List: _make_sequence_or_bag_object_from_node,
+    Tuple: _make_sequence_or_bag_object_from_node,
+    Set: _make_sequence_or_bag_object_from_node,
+    FrozenSet: _make_sequence_or_bag_object_from_node,
 }
 
 
@@ -809,14 +832,7 @@ def _make_fieldz_object_from_node(node, node_element_id_to_object):
             node_class_property = getattr(node_class, field.name)
             if isinstance(node_class_property, neomodel.properties.ArrayProperty):
                 array_type = _get_array_type_from_field(field)
-                field_value = array_type(
-                    [
-                        make_object_from_node(
-                            element, node_element_id_to_object=node_element_id_to_object
-                        )
-                        for element in node_attr_value
-                    ]
-                )
+                field_value = array_type(node_attr_value)
             elif isinstance(
                 node_class_property, neomodel.properties.Property
             ):  # not many, one base type
@@ -916,3 +932,20 @@ def make_object_from_node(node, node_element_id_to_object=None):
     )
     node_element_id_to_object[node.element_id] = object_
     return object_
+
+
+def cypher_query_as_objects(query, params=None, node_element_id_to_object=None):
+    if node_element_id_to_object is None:
+        node_element_id_to_object = {}
+    object_results = []
+    results, meta = cypher_query(query, params=params, resolve_objects=True)
+    for row in results:
+        row = [
+            make_object_from_node(
+                _, node_element_id_to_object=node_element_id_to_object
+            )
+            for _ in row
+            if isinstance(_, neomodel.StructuredNode)
+        ]
+        object_results.append(row)
+    return object_results, meta
