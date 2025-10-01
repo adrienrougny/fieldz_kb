@@ -600,7 +600,7 @@ def _make_nodes_from_set_object(
         )
         node_element = nodes_element[0]
         nodes.append(node_element)
-        to_connect.append((node, "elements", node_element, {}))
+        to_connect.append((node, "items", node_element, {}))
     return nodes, to_connect
 
 
@@ -619,7 +619,7 @@ def _make_nodes_from_frozenset_object(
         )
         node_element = nodes_element[0]
         nodes.append(node_element)
-        to_connect.append((node, "elements", node_element, {}))
+        to_connect.append((node, "items", node_element, {}))
     return nodes, to_connect
 
 
@@ -638,7 +638,7 @@ def _make_nodes_from_list_object(
         )
         node_element = nodes_element[0]
         nodes.append(node_element)
-        to_connect.append((node, "elements", node_element, {"order": index}))
+        to_connect.append((node, "items", node_element, {"order": index}))
     return nodes, to_connect
 
 
@@ -657,7 +657,7 @@ def _make_nodes_from_tuple_object(
         )
         node_element = nodes_element[0]
         nodes.append(node_element)
-        to_connect.append((node, "elements", node_element, {"order": index}))
+        to_connect.append((node, "items", node_element, {"order": index}))
     return nodes, to_connect
 
 
