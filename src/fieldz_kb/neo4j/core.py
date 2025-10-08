@@ -147,7 +147,7 @@ def connect(
         notifications_min_severity=notifications_min_severity,
     )
     neomodel.db.set_connection(driver=driver)
-    cypher_query("RETURN 1")  # return an error if not connected
+    return driver
 
 
 def delete_all():
