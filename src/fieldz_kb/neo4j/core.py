@@ -154,7 +154,7 @@ def delete_all():
     neomodel.db.cypher_query("MATCH (n) DETACH DELETE n")
 
 
-def cypher_query(query, params=None, resolve_objects=True):
+def cypher_query(query, params=None, resolve_objects=False):
     return neomodel.db.cypher_query(
         query=query, params=params, resolve_objects=resolve_objects
     )
