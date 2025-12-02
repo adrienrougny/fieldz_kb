@@ -154,10 +154,8 @@ def delete_all():
     neomodel.db.cypher_query("MATCH (n) DETACH DELETE n")
 
 
-def cypher_query(query, params=None, resolve_objects=False):
-    return neomodel.db.cypher_query(
-        query=query, params=params, resolve_objects=resolve_objects
-    )
+def cypher_query(query, params=None, resolve_objects=False, db=neomodel.db):
+    return db.cypher_query(query=query, params=params, resolve_objects=resolve_objects)
 
 
 def _make_node_class_name_from_type(type_):
@@ -729,31 +727,49 @@ def make_nodes_from_object(
     return nodes, to_connect
 
 
-@neomodel.db.transaction
 def save_from_object(
     object_,
+    integration_mode: typing.Literal["hash", "id"] | None = None,
+    exclude_from_integration=None,
+):
+    save_from_objects(
+        objects=[object_],
+        integration_mode=integration_mode,
+        exclude_from_integration=exclude_from_integration,
+    )
+
+
+@neomodel.db.transaction
+def save_from_objects(
+    objects,
     integration_mode: typing.Literal["hash", "id"] | None = None,
     exclude_from_integration=None,
 ):
     if exclude_from_integration is None:
         exclude_from_integration = tuple()
     object_to_node = {}
-    nodes, to_connect = make_nodes_from_object(
-        object_, integration_mode, exclude_from_integration, object_to_node
-    )
     saved_node_ids = set()
-    for node in nodes:
-        if id(node) not in saved_node_ids:
-            if not isinstance(node, BaseNode):
-                raise ValueError(
-                    f"node type {type(node)} must be a subclass of BaseNode"
-                )
-            node.save()
-            saved_node_ids.add(id(node))
-    for source_node, source_node_class_attr_name, target_node, properties in to_connect:
-        getattr(source_node, source_node_class_attr_name).connect(
-            target_node, properties=properties
+    for object_ in objects:
+        nodes, to_connect = make_nodes_from_object(
+            object_, integration_mode, exclude_from_integration, object_to_node
         )
+        for node in nodes:
+            if id(node) not in saved_node_ids:
+                if not isinstance(node, BaseNode):
+                    raise ValueError(
+                        f"node type {type(node)} must be a subclass of BaseNode"
+                    )
+                node.save()
+                saved_node_ids.add(id(node))
+        for (
+            source_node,
+            source_node_class_attr_name,
+            target_node,
+            properties,
+        ) in to_connect:
+            getattr(source_node, source_node_class_attr_name).connect(
+                target_node, properties=properties
+            )
 
 
 def _make_base_object_from_node(node, node_element_id_to_object):
