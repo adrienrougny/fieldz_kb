@@ -1,23 +1,35 @@
 [project]
 name = "fieldz_kb"
-version = "0.1.0"
-description = "Default template for PDM package"
+dynamic = ["version"]
+description = "A library store dataclass-like objects into knowledge bases"
 authors = [{ name = "Adrien Rougny", email = "adrienrougny@gmail.com" }]
 dependencies = ["fieldz>=0.1.2", "neomodel>=5.5.0", "inflect>=7.5.0"]
 requires-python = ">=3.10"
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-or-later" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/adrienrougny/fieldz_kb"
+Issues = "https://github.com/adrienrougny/fieldz_kb/issues"
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
+[tool.hatch.version]
+source = "vcs"
 
-[tool.pdm]
-distribution = true
+[tool.hatch.version.raw-options]
+tag_regex = '^v(?P<version>([0-9].*))'
 
-[dependency-groups]
-dev = ["pytest>=8.4.1", "pydantic>=2.11.7"]
-
-[tool.basedpyright]
-typeCheckingMode = "off"
+[tool.hatch.build.targets.wheel]
+packages = ["src/fieldz_kb"]
