@@ -817,13 +817,13 @@ def register_make_object_function(node_class, function):
     _node_class_to_make_object_function[node_class] = function
 
 
-def _get_array_type_from_field(field):
+def _get_array_type_from_field(field, module=None):
     array_type = None
     default_factory = field.default_factory
     if not fieldz_kb.typeinfo.is_missing_type(default_factory):
         array_type = default_factory
     else:
-        types = fieldz_kb.typeinfo.get_types_from_type_hint(field.type)
+        types = fieldz_kb.typeinfo.get_types_from_type_hint(field.type, module=module)
         for type_, _ in types:
             if issubclass(type_, _array_types):
                 array_type = type_
@@ -847,7 +847,9 @@ def _make_fieldz_object_from_node(node, node_element_id_to_object):
         else:
             node_class_property = getattr(node_class, field.name)
             if isinstance(node_class_property, neomodel.properties.ArrayProperty):
-                array_type = _get_array_type_from_field(field)
+                array_type = _get_array_type_from_field(
+                    field, module=fieldz_class.__module__
+                )
                 field_value = array_type(node_attr_value)
             elif isinstance(
                 node_class_property, neomodel.properties.Property
@@ -891,7 +893,9 @@ def _make_fieldz_object_from_node(node, node_element_id_to_object):
                                 relationship.end_node()
                                 for relationship in relationships
                             ]
-                        array_type = _get_array_type_from_field(field)
+                        array_type = _get_array_type_from_field(
+                            field, module=fieldz_class.__module__
+                        )
                         field_value = array_type(
                             [
                                 make_object_from_node(
