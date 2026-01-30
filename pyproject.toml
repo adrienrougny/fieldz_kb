@@ -3,7 +3,12 @@ name = "fieldz_kb"
 dynamic = ["version"]
 description = "A library store dataclass-like objects into knowledge bases"
 authors = [{ name = "Adrien Rougny", email = "adrienrougny@gmail.com" }]
-dependencies = ["fieldz>=0.1.2", "neomodel>=5.5.0", "inflect>=7.5.0"]
+dependencies = [
+    "fieldz>=0.1.2",
+    "neomodel>=5.5.0",
+    "inflect>=7.5.0",
+    "frozendict>=2.4.7",
+]
 requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
@@ -20,6 +25,11 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/adrienrougny/fieldz_kb"
 Issues = "https://github.com/adrienrougny/fieldz_kb/issues"
+
+
+[dependency-groups]
+dev = ["ruff>=0.12.8", { include-group = "test" }]
+test = ["pytest>=9.0.2"]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
