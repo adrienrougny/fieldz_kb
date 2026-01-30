@@ -11,6 +11,13 @@ import fieldz
 import fieldz_kb.typeinfo as typeinfo
 
 
+# Module-level dataclass for forward reference testing
+@dataclass
+class ForwardNode:
+    value: int
+    next_node: "ForwardNode"
+
+
 class TestIsFieldzClass:
     """Tests for is_fieldz_class function."""
 
@@ -164,14 +171,7 @@ class TestGetTypesFromTypeHint:
 
     def test_forward_ref_as_string(self):
         """Test forward references as strings."""
-
-        # This tests that string forward refs can be resolved
-        @dataclass
-        class ForwardNode:
-            value: int
-            next_node: "ForwardNode"
-
-        # Should not raise an error
+        # Should not raise an error - uses module-level ForwardNode
         result = typeinfo.get_types_from_type_hint("ForwardNode", module=__name__)
         assert len(result) == 1
         assert result[0][0] is ForwardNode

@@ -2,7 +2,7 @@
 
 import pytest
 
-import fieldz_kb.neo4j.core as neo4j_core
+import fieldz_kb.neo4j.core
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ def neo4j_connection():
         raise ValueError("credentials.py must define URI, USERNAME, and PASSWORD")
 
     # Connect to Neo4j
-    driver = neo4j_core.connect(
+    driver = fieldz_kb.neo4j.core.connect(
         hostname=credentials.URI,
         username=credentials.USERNAME,
         password=credentials.PASSWORD,
@@ -98,12 +98,12 @@ def cleanup_neo4j_database(neo4j_connection):
     before each test runs.
     """
     # Clean up before test
-    neo4j_core.delete_all()
+    fieldz_kb.neo4j.core.delete_all()
 
     yield
 
     # Clean up after test
-    neo4j_core.delete_all()
+    fieldz_kb.neo4j.core.delete_all()
 
 
 @pytest.fixture
