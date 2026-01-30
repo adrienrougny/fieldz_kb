@@ -216,9 +216,6 @@ class TestMakeNodesFromObject:
         nodes, to_connect = neo4j_core.make_nodes_from_object(person)
 
         assert len(nodes) == 1
-        node = nodes[0]
-        # Note: The actual property values may be set differently
-        # depending on neomodel implementation
 
     def test_make_nodes_from_list(self):
         """Test converting list to nodes."""
@@ -251,8 +248,6 @@ class TestMakeNodesFromObject:
         """Test converting dict to nodes."""
         data = {"a": 1, "b": 2}
         nodes, to_connect = neo4j_core.make_nodes_from_object(data)
-
-        # 1 Dict node + 2 Item nodes + 2 key nodes + 2 value nodes
         dict_node = nodes[0]
         assert isinstance(dict_node, neo4j_core.Dict)
         assert len(to_connect) > 0
@@ -281,7 +276,6 @@ class TestMakeNodesFromObject:
 
     def test_make_nodes_with_integration_mode_hash(self):
         """Test hash-based integration mode."""
-        # Use a frozenset as it's hashable and immutable
         obj = frozenset([1, 2, 3])
         object_to_node = {}
         nodes1, _ = neo4j_core.make_nodes_from_object(
@@ -291,7 +285,6 @@ class TestMakeNodesFromObject:
             obj, integration_mode="hash", object_to_node=object_to_node
         )
 
-        # Should return the same node (from cache)
         assert nodes1[0] is nodes2[0]
 
     def test_make_nodes_with_integration_mode_id(self):
@@ -301,8 +294,6 @@ class TestMakeNodesFromObject:
 
         nodes1, _ = neo4j_core.make_nodes_from_object(obj1, integration_mode="id")
         nodes2, _ = neo4j_core.make_nodes_from_object(obj2, integration_mode="id")
-
-        # Should be different nodes (different object ids)
         assert nodes1[0] is not nodes2[0]
 
     def test_unsupported_type_raises_error(self):
@@ -406,15 +397,9 @@ class TestMakeObjectFromNode:
 
     def test_make_object_with_caching(self):
         """Test that object conversion uses caching."""
-        # Setup mock node
         mock_node = Mock()
         mock_node.element_id = "test_123"
-
         cache = {}
-
-        # First call should add to cache
-        # Second call should return from cache
-        # (Implementation depends on actual neomodel nodes)
 
 
 class TestSaveFromObjects:
@@ -551,8 +536,6 @@ class TestComplexScenarios:
             name="Alice", address=ScenarioAddress(street="123 Main St", city="NYC")
         )
         nodes, to_connect = neo4j_core.make_nodes_from_object(person)
-
-        # Should create nodes for both Person and Address
         assert len(nodes) >= 2
 
     def test_list_of_fieldz_objects(self):
@@ -564,8 +547,6 @@ class TestComplexScenarios:
 
         items = [ScenarioItem(value=1), ScenarioItem(value=2), ScenarioItem(value=3)]
         nodes, to_connect = neo4j_core.make_nodes_from_object(items)
-
-        # Should create a list node + 3 item nodes
         assert len(nodes) == 4
 
     def test_dict_with_complex_values(self):
@@ -577,8 +558,6 @@ class TestComplexScenarios:
 
         data = {"alice": DictPerson(name="Alice"), "bob": DictPerson(name="Bob")}
         nodes, to_connect = neo4j_core.make_nodes_from_object(data)
-
-        # Should create dict node + 2 item nodes + 2 key nodes + 2 person nodes
         assert len(nodes) > 1
 
 
