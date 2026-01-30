@@ -1,3 +1,15 @@
+"""Core Neo4j integration for fieldz_kb.
+
+This module provides the core functionality for converting dataclass-like objects
+to Neo4j nodes and relationships. It includes:
+
+- Node class generation from Python types
+- Object-to-node conversion (saving)
+- Node-to-object conversion (retrieval)
+- Support for primitives, collections, enums, and nested dataclasses
+- Relationship handling with ordering support
+"""
+
 import types
 import typing
 import re
@@ -14,73 +26,104 @@ import frozendict
 import fieldz_kb.typeinfo
 
 
+# Type classification constants
 _base_types = (int, str, float, bool)
 _array_types = (list, tuple, set, frozenset)
 _ordered_array_types = (list, tuple)
 
 
 class OrderedRelationshipTo(neomodel.StructuredRel):
+    """Relationship model for ordered relationships with sequence information."""
+
     order = neomodel.IntegerProperty()
 
 
 class UnorderedRelationshipTo(neomodel.StructuredRel):
+    """Relationship model for unordered relationships."""
+
     pass
 
 
 class BaseNode(neomodel.StructuredNode):
+    """Base class for all Neo4j node types."""
+
     pass
 
 
 class Integer(BaseNode):
+    """Node class for storing integer values."""
+
     value = neomodel.IntegerProperty(required=True)
 
 
 class String(BaseNode):
+    """Node class for storing string values."""
+
     value = neomodel.StringProperty(required=True)
 
 
 class Float(BaseNode):
+    """Node class for storing float values."""
+
     value = neomodel.FloatProperty(required=True)
 
 
 class Boolean(BaseNode):
+    """Node class for storing boolean values."""
+
     value = neomodel.BooleanProperty(required=True)
 
 
 class Item(BaseNode):
+    """Node class for storing key-value pairs (used in mappings)."""
+
     key = neomodel.RelationshipTo(BaseNode, "HAS_KEY", neomodel.One)
     value = neomodel.RelationshipTo(BaseNode, "HAS_VALUE", neomodel.One)
 
 
 class Mapping(BaseNode):
+    """Base node class for mapping types (dict, frozendict)."""
+
     items = neomodel.RelationshipTo(
         Item, "HAS_ITEM", neomodel.ZeroOrMore, model=OrderedRelationshipTo
     )
 
 
 class Dict(Mapping):
+    """Node class for storing dictionary values."""
+
     pass
 
 
 class FrozenDict(Mapping):
+    """Node class for storing frozendict values."""
+
     pass
 
 
 class Bag(BaseNode):
+    """Base node class for unordered collection types (set, frozenset)."""
+
     items = neomodel.RelationshipTo(
         BaseNode, "HAS_ITEM", neomodel.ZeroOrMore, model=OrderedRelationshipTo
     )
 
 
 class Set(Bag):
+    """Node class for storing set values."""
+
     pass
 
 
 class FrozenSet(Bag):
+    """Node class for storing frozenset values."""
+
     pass
 
 
 class Sequence(BaseNode):
+    """Base node class for ordered sequence types (list, tuple)."""
+
     items = neomodel.RelationshipTo(
         BaseNode,
         "HAS_ITEM",
@@ -90,13 +133,18 @@ class Sequence(BaseNode):
 
 
 class List(Sequence):
+    """Node class for storing list values."""
+
     pass
 
 
 class Tuple(Sequence):
+    """Node class for storing tuple values."""
+
     pass
 
 
+# Mapping from Python types to Neo4j node classes
 _type_to_node_class = {
     int: Integer,
     str: String,
@@ -107,6 +155,8 @@ _type_to_node_class = {
     frozenset: FrozenSet,
     bool: Boolean,
 }
+
+# Mapping from Neo4j node classes to Python types
 _node_class_to_type = {
     Integer: int,
     String: str,
@@ -119,6 +169,8 @@ _node_class_to_type = {
     Dict: dict,
     FrozenDict: frozendict,
 }
+
+# Mapping from base types to neomodel property classes
 _type_to_node_base_property_class = {
     str: neomodel.StringProperty,
     int: neomodel.IntegerProperty,
@@ -136,6 +188,19 @@ def connect(
     notifications_min_severity: typing.Literal["off", "warning", "information"]
     | None = None,
 ):
+    """Connect to a Neo4j database.
+
+    Args:
+        hostname: The Neo4j server hostname
+        username: The Neo4j username
+        password: The Neo4j password
+        protocol: The protocol to use (default: "neo4j")
+        port: The port to connect to (default: "7687")
+        notifications_min_severity: Minimum severity level for notifications
+
+    Returns:
+        The Neo4j driver instance
+    """
     uri = f"{protocol}://{hostname}:{port}"
     if notifications_min_severity is not None:
         notifications_min_severity = neo4j.NotificationMinimumSeverity[
@@ -151,10 +216,25 @@ def connect(
 
 
 def delete_all():
+    """Delete all nodes and relationships from the database.
+
+    Warning: This permanently deletes all data in the database.
+    """
     neomodel.db.cypher_query("MATCH (n) DETACH DELETE n")
 
 
 def cypher_query(query, params=None, resolve_objects=False, db=neomodel.db):
+    """Execute a Cypher query against the Neo4j database.
+
+    Args:
+        query: The Cypher query string
+        params: Optional query parameters
+        resolve_objects: Whether to resolve results as neomodel objects
+        db: The database connection to use
+
+    Returns:
+        A tuple of (results, meta) where results is a list of rows
+    """
     return db.cypher_query(query=query, params=params, resolve_objects=resolve_objects)
 
 
@@ -343,6 +423,19 @@ def _get_node_property_attributes_from_type(type_):
 def get_or_make_node_class_from_type(
     type_, make_node_classes_recursively=True, guard=None
 ):
+    """Get or create a Neo4j node class for a given Python type.
+
+    This function returns an existing node class if one has already been created
+    for the given type, otherwise it creates a new one.
+
+    Args:
+        type_: The Python type to get or create a node class for
+        make_node_classes_recursively: Whether to create node classes for nested types
+        guard: Set of types currently being processed (prevents infinite recursion)
+
+    Returns:
+        The node class (a subclass of BaseNode)
+    """
     if guard is None:
         guard = set([])
     node_class = _type_to_node_class.get(type_)
@@ -732,6 +825,13 @@ def save_from_object(
     integration_mode: typing.Literal["hash", "id"] | None = None,
     exclude_from_integration=None,
 ):
+    """Save a single object to Neo4j.
+
+    Args:
+        object_: The object to save
+        integration_mode: How to handle duplicate objects ("hash", "id", or None)
+        exclude_from_integration: Types to exclude from integration logic
+    """
     save_from_objects(
         objects=[object_],
         integration_mode=integration_mode,
@@ -745,6 +845,16 @@ def save_from_objects(
     integration_mode: typing.Literal["hash", "id"] | None = None,
     exclude_from_integration=None,
 ):
+    """Save multiple objects to Neo4j in a single transaction.
+
+    Args:
+        objects: The objects to save
+        integration_mode: How to handle duplicate objects ("hash", "id", or None)
+        exclude_from_integration: Types to exclude from integration logic
+
+    Raises:
+        ValueError: If a node is not a subclass of BaseNode
+    """
     if exclude_from_integration is None:
         exclude_from_integration = tuple()
     object_to_node = {}
@@ -928,6 +1038,18 @@ def _make_enum_object_from_node(node, node_element_id_to_object):
 
 
 def make_object_from_node(node, node_element_id_to_object=None):
+    """Convert a Neo4j node back to a Python object.
+
+    Args:
+        node: The Neo4j node to convert
+        node_element_id_to_object: Optional cache mapping node element IDs to objects
+
+    Returns:
+        The reconstructed Python object
+
+    Raises:
+        ValueError: If the node type cannot be mapped to a Python class
+    """
     if node_element_id_to_object is None:
         node_element_id_to_object = {}
     object_ = node_element_id_to_object.get(node.element_id)
@@ -955,6 +1077,16 @@ def make_object_from_node(node, node_element_id_to_object=None):
 
 
 def cypher_query_as_objects(query, params=None, node_element_id_to_object=None):
+    """Execute a Cypher query and convert results to Python objects.
+
+    Args:
+        query: The Cypher query string
+        params: Optional query parameters
+        node_element_id_to_object: Optional cache mapping node element IDs to objects
+
+    Returns:
+        A tuple of (object_results, meta) where object_results contains Python objects
+    """
     if node_element_id_to_object is None:
         node_element_id_to_object = {}
     object_results = []

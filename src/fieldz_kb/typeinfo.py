@@ -1,3 +1,9 @@
+"""Type introspection utilities for fieldz_kb.
+
+This module provides utilities for introspecting type hints, including
+support for forward references, unions, optionals, and generic types.
+"""
+
 import typing
 import types
 
@@ -5,6 +11,14 @@ import fieldz
 
 
 def is_fieldz_class(type_):
+    """Check if a type is a fieldz-supported class (e.g., dataclass).
+
+    Args:
+        type_: The type to check
+
+    Returns:
+        True if the type is a fieldz class, False otherwise
+    """
     for adapter in fieldz._functions.ADAPTERS:
         if adapter.is_instance(type_):
             return True
@@ -12,10 +26,37 @@ def is_fieldz_class(type_):
 
 
 def is_missing_type(type_):
+    """Check if a type is the fieldz missing type sentinel.
+
+    Args:
+        type_: The type to check
+
+    Returns:
+        True if the type is the missing sentinel, False otherwise
+    """
     return type_ is fieldz._types._MISSING_TYPE.MISSING
 
 
 def get_types_from_type_hint(type_hint, module=None):
+    """Extract type information from a type hint.
+
+        This function recursively processes type hints to extract the underlying
+    types, handling:
+        - Union types (including Optional)
+        - Generic types (List, Dict, Set, etc.)
+        - Forward references (including string annotations)
+        - Base types
+
+        Args:
+            type_hint: The type hint to process
+            module: Optional module name for resolving forward references
+
+        Returns:
+            A tuple of (type_origin, type_args) pairs describing the type structure
+
+        Raises:
+            ValueError: If the type hint format is not supported
+    """
     if (
         type_hint_origin := typing.get_origin(type_hint)
     ) is not None:  # subscribed type

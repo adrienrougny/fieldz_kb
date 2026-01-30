@@ -1,11 +1,35 @@
+"""BioCypher adapter for fieldz_kb.
+
+This module provides an adapter for BioCypher integration, converting
+fieldz objects to BioCypher-compatible node and relationship formats.
+"""
+
 import fieldz_kb.neo4j.core
 
 
 class Adapter(object):
+    """Adapter for converting fieldz objects to BioCypher format.
+
+    This adapter takes a fieldz object and converts it to BioCypher-compatible
+    nodes and relationships.
+    """
+
     def __init__(self, obj):
+        """Initialize the adapter with an object.
+
+        Args:
+            obj: The object to convert to BioCypher format
+        """
         self.obj = obj
 
     def get_nodes_and_relationships(self):
+        """Convert the object to BioCypher nodes and relationships.
+
+        Returns:
+            A tuple of (biocypher_nodes, biocypher_relationships) where:
+            - biocypher_nodes: List of tuples (id, label, properties)
+            - biocypher_relationships: List of tuples (source_id, target_id, label, properties)
+        """
         nodes, to_connect = fieldz_kb.neo4j.core.make_nodes_from_object(self.obj)
         biocypher_nodes = []
         biocypher_relationships = []

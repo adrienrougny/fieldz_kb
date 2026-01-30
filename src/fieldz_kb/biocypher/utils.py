@@ -1,9 +1,23 @@
+"""BioCypher schema utilities for fieldz_kb.
+
+This module provides utilities for generating BioCypher schema files
+from fieldz classes.
+"""
+
 import yaml
 import neomodel
 import fieldz_kb.neo4j.core
 
 
 def make_biocypher_schema_string_from_classes(classes):
+    """Generate a BioCypher schema YAML string from a set of classes.
+
+    Args:
+        classes: A set of classes to generate the schema for
+
+    Returns:
+        A YAML string containing the BioCypher schema
+    """
     classes = set(classes)
     schema = {}
     for class_ in classes:
@@ -43,6 +57,12 @@ def make_biocypher_schema_string_from_classes(classes):
 
 
 def make_biocypher_schema_file_from_classes(classes, output_file_path):
+    """Generate a BioCypher schema YAML file from a set of classes.
+
+    Args:
+        classes: A set of classes to generate the schema for
+        output_file_path: The path to write the YAML file to
+    """
     biocypher_schema_string = make_biocypher_schema_string_from_classes(classes)
     with open(output_file_path, "w") as f:
         f.write(biocypher_schema_string)
