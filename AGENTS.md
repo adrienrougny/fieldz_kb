@@ -104,9 +104,36 @@ python -m build
 - Include context in error messages (e.g., `f"type {type_} not supported"`)
 
 ### Documentation
-- Add docstrings to test classes and test methods
-- Keep docstrings concise and descriptive
-- Use triple double quotes for docstrings
+- Add docstrings to all modules, classes, and public functions
+- Use triple double quotes for all docstrings
+- Module docstrings should describe the module's purpose and contents
+- Class docstrings should describe the class purpose and behavior
+- Function/method docstrings should include:
+  - Brief description of what it does
+  - Args section with parameter descriptions
+  - Returns section with return value description
+  - Raises section if exceptions are raised
+- Example style:
+  ```python
+  def get_types_from_type_hint(type_hint, module=None):
+      """Extract type information from a type hint.
+      
+      This function recursively processes type hints to extract the underlying
+      types, handling unions, generic types, forward references, and base types.
+      
+      Args:
+          type_hint: The type hint to process
+          module: Optional module name for resolving forward references
+      
+      Returns:
+          A tuple of (type_origin, type_args) pairs describing the type structure
+      
+      Raises:
+          ValueError: If the type hint format is not supported
+      """
+  ```
+- No inline comments in code, only docstrings
+- Keep docstrings concise but informative
 
 ### Testing
 - Use pytest for all tests
@@ -149,3 +176,35 @@ Python version support: 3.10, 3.11, 3.12, 3.13
 - Supports conversion of Python primitives, enums, and collections
 - Node classes are dynamically generated using `type()`
 - Uses `neomodel` for Neo4j OGM functionality
+
+## Forward Reference Handling
+
+Forward references (e.g., `List["Employee"]`) are supported but require special handling:
+
+- **Module-level definitions**: Dataclasses with forward references must be defined at the module level, not inside test methods or functions
+- **Why**: The `get_types_from_type_hint()` function uses `typing._eval_type()` with the module's namespace to resolve forward references. Local class definitions don't exist in the module's namespace
+- **Best practice**: Define all dataclasses with forward references at module level:
+  ```python
+  # Good - at module level
+  @dataclass
+  class Company:
+      name: str
+      employees: List["Employee"]
+
+  @dataclass
+  class Employee:
+      name: str
+
+  # Bad - inside function (forward refs won't resolve)
+  def test_something():
+      @dataclass
+      class Company:
+          employees: List["Employee"]  # Won't work!
+  ```
+
+## Testing Forward References
+
+When writing tests for forward references:
+- Define the dataclasses at module level in the test file
+- Use the module-level classes in your test methods
+- See `tests/test_typeinfo.py` and `tests/test_neo4j_core.py` for examples
