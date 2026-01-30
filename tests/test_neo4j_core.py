@@ -1,15 +1,26 @@
-"""Tests for fieldz_kb.neo4j.core module."""
+"""Tests for fieldz_kb.neo4j.core module using real Neo4j database.
+
+These tests require a running Neo4j instance and credentials in tests/credentials.py.
+Run with: pytest tests/test_neo4j_core.py -v
+"""
 
 import enum
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Set, Tuple
-from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 import fieldz
 import frozendict
 
 import fieldz_kb.neo4j.core as neo4j_core
+
+
+@pytest.fixture(autouse=True)
+def clear_database_before_tests(neo4j_connection):
+    """Clear database before each test to ensure isolation."""
+    neo4j_core.delete_all()
+    yield
+    neo4j_core.delete_all()
 
 
 class TestNodeClassGeneration:
@@ -65,25 +76,6 @@ class TestNodeClassGeneration:
         # Check properties
         assert hasattr(node_class, "name")
         assert hasattr(node_class, "age")
-
-    @pytest.mark.skip(reason="Bug in implementation: guard is list but treated as set")
-    def test_make_node_class_from_fieldz_with_relationships(self):
-        """Test creating node class with relationship fields."""
-
-        @dataclass
-        class RelationshipAddress:
-            street: str
-
-        @dataclass
-        class RelationshipPerson:
-            name: str
-            address: RelationshipAddress
-
-        node_class = neo4j_core._make_node_class_from_type(RelationshipPerson)
-
-        assert node_class.__name__ == "RelationshipPerson"
-        assert hasattr(node_class, "name")
-        assert hasattr(node_class, "address")
 
     def test_make_node_class_from_enum(self):
         """Test creating node class from enum."""
@@ -202,21 +194,6 @@ class TestMakeNodesFromObject:
         assert isinstance(node, neo4j_core.BaseNode)
         assert node.__class__.__name__ == "SimpleNodePerson"
 
-    def test_make_nodes_from_fieldz_with_base_types(self):
-        """Test converting fieldz object with base type fields."""
-
-        @dataclass
-        class BaseTypesPerson:
-            name: str
-            age: int
-            height: float
-            is_active: bool
-
-        person = BaseTypesPerson(name="Bob", age=25, height=1.75, is_active=True)
-        nodes, to_connect = neo4j_core.make_nodes_from_object(person)
-
-        assert len(nodes) == 1
-
     def test_make_nodes_from_list(self):
         """Test converting list to nodes."""
         data = [1, 2, 3]
@@ -306,6 +283,125 @@ class TestMakeNodesFromObject:
             neo4j_core.make_nodes_from_object(UnsupportedClass())
 
 
+class TestSaveAndRetrieve:
+    """Tests for saving objects to Neo4j and retrieving them."""
+
+    def test_save_and_retrieve_simple_object(self, neo4j_connection):
+        """Test saving a simple fieldz object and retrieving it."""
+
+        @dataclass
+        class SavePerson:
+            name: str
+            age: int
+
+        person = SavePerson(name="Alice", age=30)
+
+        # Save the object
+        neo4j_core.save_from_object(person)
+
+        # Query and verify it was saved
+        results, _ = neo4j_core.cypher_query("MATCH (n:SavePerson) RETURN n")
+        assert len(results) == 1
+
+        # Retrieve the object
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        assert isinstance(retrieved, SavePerson)
+        assert retrieved.name == "Alice"
+        assert retrieved.age == 30
+
+    def test_save_and_retrieve_with_base_types(self, neo4j_connection):
+        """Test saving object with base type fields."""
+
+        @dataclass
+        class BaseTypesPerson:
+            name: str
+            age: int
+            height: float
+            is_active: bool
+
+        person = BaseTypesPerson(name="Bob", age=25, height=1.75, is_active=True)
+        neo4j_core.save_from_object(person)
+
+        results, _ = neo4j_core.cypher_query("MATCH (n:BaseTypesPerson) RETURN n")
+        assert len(results) == 1
+
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        assert retrieved.name == "Bob"
+        assert retrieved.age == 25
+        assert retrieved.height == 1.75
+        assert retrieved.is_active is True
+
+    def test_save_and_retrieve_list(self, neo4j_connection):
+        """Test saving and retrieving a list."""
+        data = [1, 2, 3]
+        neo4j_core.save_from_object(data)
+
+        results, _ = neo4j_core.cypher_query("MATCH (n:List) RETURN n")
+        assert len(results) == 1
+
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        assert retrieved == [1, 2, 3]
+
+    def test_save_and_retrieve_enum(self, neo4j_connection):
+        """Test saving and retrieving an enum."""
+
+        class SaveStatus(enum.Enum):
+            ACTIVE = "active"
+            INACTIVE = "inactive"
+
+        status = SaveStatus.ACTIVE
+        neo4j_core.save_from_object(status)
+
+        results, _ = neo4j_core.cypher_query("MATCH (n:SaveStatus) RETURN n")
+        assert len(results) == 1
+
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        assert retrieved is SaveStatus.ACTIVE
+
+    def test_save_multiple_objects(self, neo4j_connection):
+        """Test saving multiple objects."""
+
+        @dataclass
+        class MultiPerson:
+            name: str
+
+        persons = [MultiPerson(name="Alice"), MultiPerson(name="Bob")]
+        neo4j_core.save_from_objects(persons)
+
+        results, _ = neo4j_core.cypher_query("MATCH (n:MultiPerson) RETURN n")
+        assert len(results) == 2
+
+    def test_save_with_relationships(self, neo4j_connection):
+        """Test saving objects with relationships."""
+
+        @dataclass
+        class RelAddress:
+            street: str
+
+        @dataclass
+        class RelPerson:
+            name: str
+            address: RelAddress
+
+        address = RelAddress(street="123 Main St")
+        person = RelPerson(name="Alice", address=address)
+
+        neo4j_core.save_from_object(person)
+
+        # Check both nodes were saved
+        results, _ = neo4j_core.cypher_query("MATCH (n:RelPerson) RETURN n")
+        assert len(results) == 1
+
+        results, _ = neo4j_core.cypher_query("MATCH (n:RelAddress) RETURN n")
+        assert len(results) == 1
+
+        # Check relationship exists
+        results, _ = neo4j_core.cypher_query(
+            "MATCH (p:RelPerson)-[:HAS_ADDRESS]->(a:RelAddress) RETURN p, a"
+        )
+        assert len(results) == 1
+
+
 class TestRelationshipTypeGeneration:
     """Tests for relationship type name generation."""
 
@@ -381,107 +477,6 @@ class TestNodePropertyGeneration:
         assert prop is not None
 
 
-class TestMakeObjectFromNode:
-    """Tests for converting nodes back to objects."""
-
-    def test_make_object_from_base_node(self):
-        """Test converting base type nodes back to objects."""
-        # Create a mock Integer node
-        mock_node = Mock()
-        mock_node.value = 42
-        mock_node.__class__ = neo4j_core.Integer
-        mock_node.element_id = "test_id"
-
-        # This would need actual neomodel nodes to work properly
-        # For now we test the function structure
-
-    def test_make_object_with_caching(self):
-        """Test that object conversion uses caching."""
-        mock_node = Mock()
-        mock_node.element_id = "test_123"
-        cache = {}
-
-
-class TestSaveFromObjects:
-    """Tests for saving objects to Neo4j."""
-
-    @pytest.mark.neo4j
-    @patch("fieldz_kb.neo4j.core.neomodel.db")
-    def test_save_single_object(self, mock_db):
-        """Test saving a single object."""
-        # Setup mock
-        mock_db.transaction = lambda f: f
-
-        with patch.object(neo4j_core, "make_nodes_from_object") as mock_make:
-            mock_node = Mock()
-            mock_node.id = id(mock_node)
-            mock_make.return_value = ([mock_node], [])
-
-            obj = "test"
-            neo4j_core.save_from_object(obj)
-
-            mock_make.assert_called_once()
-            mock_node.save.assert_called_once()
-
-    @pytest.mark.neo4j
-    @patch("fieldz_kb.neo4j.core.neomodel.db")
-    def test_save_multiple_objects(self, mock_db):
-        """Test saving multiple objects."""
-        mock_db.transaction = lambda f: f
-
-        with patch.object(neo4j_core, "make_nodes_from_object") as mock_make:
-            mock_node1 = Mock()
-            mock_node1.id = id(mock_node1)
-            mock_node2 = Mock()
-            mock_node2.id = id(mock_node2)
-
-            mock_make.side_effect = [
-                ([mock_node1], []),
-                ([mock_node2], []),
-            ]
-
-            neo4j_core.save_from_objects(["obj1", "obj2"])
-
-            assert mock_make.call_count == 2
-            mock_node1.save.assert_called_once()
-            mock_node2.save.assert_called_once()
-
-
-class TestCypherQuery:
-    """Tests for cypher query execution."""
-
-    @pytest.mark.neo4j
-    @patch("fieldz_kb.neo4j.core.neomodel.db")
-    def test_cypher_query_basic(self, mock_db):
-        """Test basic cypher query execution."""
-        mock_db.cypher_query.return_value = ([["result"]], ["column"])
-
-        results, meta = neo4j_core.cypher_query("MATCH (n) RETURN n")
-
-        mock_db.cypher_query.assert_called_once_with(
-            query="MATCH (n) RETURN n", params=None, resolve_objects=False
-        )
-
-
-class TestConnection:
-    """Tests for database connection."""
-
-    @patch("fieldz_kb.neo4j.core.neo4j.GraphDatabase")
-    @patch("fieldz_kb.neo4j.core.neomodel.db")
-    def test_connect_basic(self, mock_neomodel_db, mock_graph_db):
-        """Test basic connection."""
-        mock_driver = Mock()
-        mock_graph_db.return_value.driver.return_value = mock_driver
-
-        driver = neo4j_core.connect(
-            hostname="localhost", username="neo4j", password="password"
-        )
-
-        mock_graph_db.return_value.driver.assert_called_once()
-        mock_neomodel_db.set_connection.assert_called_once()
-        assert driver == mock_driver
-
-
 class TestTypeMappings:
     """Tests for type to node class mappings."""
 
@@ -519,7 +514,7 @@ class TestTypeMappings:
 class TestComplexScenarios:
     """Complex integration scenarios."""
 
-    def test_nested_fieldz_objects(self):
+    def test_nested_fieldz_objects(self, neo4j_connection):
         """Test nested fieldz dataclasses."""
 
         @dataclass
@@ -535,10 +530,18 @@ class TestComplexScenarios:
         person = ScenarioPerson(
             name="Alice", address=ScenarioAddress(street="123 Main St", city="NYC")
         )
-        nodes, to_connect = neo4j_core.make_nodes_from_object(person)
-        assert len(nodes) >= 2
+        neo4j_core.save_from_object(person)
 
-    def test_list_of_fieldz_objects(self):
+        # Retrieve and verify
+        results, _ = neo4j_core.cypher_query("MATCH (n:ScenarioPerson) RETURN n")
+        assert len(results) == 1
+
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        assert retrieved.name == "Alice"
+        assert retrieved.address.street == "123 Main St"
+        assert retrieved.address.city == "NYC"
+
+    def test_list_of_fieldz_objects(self, neo4j_connection):
         """Test list containing fieldz objects."""
 
         @dataclass
@@ -546,10 +549,16 @@ class TestComplexScenarios:
             value: int
 
         items = [ScenarioItem(value=1), ScenarioItem(value=2), ScenarioItem(value=3)]
-        nodes, to_connect = neo4j_core.make_nodes_from_object(items)
-        assert len(nodes) == 4
+        neo4j_core.save_from_object(items)
 
-    def test_dict_with_complex_values(self):
+        results, _ = neo4j_core.cypher_query("MATCH (n:List) RETURN n")
+        assert len(results) == 1
+
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        # List items should be preserved
+        assert len(retrieved) == 3
+
+    def test_dict_with_complex_values(self, neo4j_connection):
         """Test dict with complex values."""
 
         @dataclass
@@ -557,8 +566,78 @@ class TestComplexScenarios:
             name: str
 
         data = {"alice": DictPerson(name="Alice"), "bob": DictPerson(name="Bob")}
-        nodes, to_connect = neo4j_core.make_nodes_from_object(data)
-        assert len(nodes) > 1
+        neo4j_core.save_from_object(data)
+
+        results, _ = neo4j_core.cypher_query("MATCH (n:Dict) RETURN n")
+        assert len(results) == 1
+
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        assert "alice" in retrieved
+        assert "bob" in retrieved
+
+    def test_round_trip_complex_object(self, neo4j_connection):
+        """Test complete round-trip of a complex object."""
+
+        @dataclass
+        class Company:
+            name: str
+            employees: List["Employee"]
+
+        @dataclass
+        class Employee:
+            name: str
+            department: str
+            skills: List[str]
+
+        company = Company(
+            name="TechCorp",
+            employees=[
+                Employee(
+                    name="Alice", department="Engineering", skills=["Python", "Neo4j"]
+                ),
+                Employee(name="Bob", department="Design", skills=["Figma", "UI"]),
+            ],
+        )
+
+        # Save
+        neo4j_core.save_from_object(company)
+
+        # Retrieve
+        results, _ = neo4j_core.cypher_query("MATCH (n:Company) RETURN n")
+        assert len(results) == 1
+
+        retrieved = neo4j_core.make_object_from_node(results[0][0])
+        assert retrieved.name == "TechCorp"
+        assert len(retrieved.employees) == 2
+        assert retrieved.employees[0].name == "Alice"
+        assert retrieved.employees[0].skills == ["Python", "Neo4j"]
+
+
+class TestCypherQueryAsObjects:
+    """Tests for cypher_query_as_objects function."""
+
+    def test_cypher_query_as_objects(self, neo4j_connection):
+        """Test querying and converting results to objects."""
+
+        @dataclass
+        class QueryPerson:
+            name: str
+            age: int
+
+        persons = [
+            QueryPerson(name="Alice", age=30),
+            QueryPerson(name="Bob", age=25),
+        ]
+        neo4j_core.save_from_objects(persons)
+
+        # Query using cypher_query_as_objects
+        results, _ = neo4j_core.cypher_query_as_objects(
+            "MATCH (n:QueryPerson) RETURN n ORDER BY n.age"
+        )
+
+        assert len(results) == 2
+        assert results[0][0].name == "Bob"  # Younger first
+        assert results[1][0].name == "Alice"
 
 
 if __name__ == "__main__":

@@ -162,9 +162,6 @@ class TestGetTypesFromTypeHint:
         assert inner_origin is list
         assert (int, ()) in inner_args
 
-    @pytest.mark.skip(
-        reason="Forward reference resolution requires class to be in module namespace"
-    )
     def test_forward_ref_as_string(self):
         """Test forward references as strings."""
 
