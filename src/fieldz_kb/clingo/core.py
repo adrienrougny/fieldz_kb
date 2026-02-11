@@ -3,9 +3,14 @@
 This module provides the core functionality for converting dataclass-like objects
 to clingo predicates. It includes:
 
+- Predicate class generation from Python types (via clorm)
+- Object-to-fact conversion
+- Support for primitives, collections, and nested dataclasses
+- Caching of generated predicate classes
 """
 
 import abc
+import itertools
 import types
 
 import clorm
@@ -20,6 +25,22 @@ _ordered_array_types = (list, tuple)
 
 _type_to_predicate_class = {}
 _field_key_to_predicate_class = {}
+_id_counter = itertools.count()
+
+
+def reset_caches():
+    """Reset all internal predicate class caches and ID counter.
+
+    Primarily intended for use in tests to ensure isolation between test cases.
+    """
+    global _id_counter
+    _type_to_predicate_class.clear()
+    _field_key_to_predicate_class.clear()
+    _id_counter = itertools.count()
+
+
+def _make_fact_id():
+    return f"id_{next(_id_counter)}"
 
 
 def _make_predicate_class_name_from_type(type_):
@@ -35,14 +56,14 @@ def _make_predicate_name_from_field(field):
     return predicate_class_name
 
 
-def get_or_make_predicate_classes_from_type(
+def _get_or_make_predicate_classes_from_type(
     type_, module=None, make_predicate_classes_recursively=True, guard=None
 ):
     if guard is None:
         guard = set([])
-    predicate_class = _type_to_predicate_class.get(type_)
-    if predicate_class is not None:
-        return [predicate_class]
+    cached = _type_to_predicate_class.get(type_)
+    if cached is not None:
+        return [cached]
     guard.add(type_)
     predicate_classes = _make_predicate_classes_from_type(
         type_,
@@ -54,7 +75,7 @@ def get_or_make_predicate_classes_from_type(
     return predicate_classes
 
 
-def get_or_make_predicate_classes_from_field(
+def _get_or_make_predicate_classes_from_field(
     fieldz_class,
     field,
     type_=None,
@@ -64,11 +85,9 @@ def get_or_make_predicate_classes_from_field(
 ):
     if guard is None:
         guard = set([])
-    predicate_class = _field_key_to_predicate_class.get(
-        (fieldz_class, field.name, type_)
-    )
-    if predicate_class is not None:
-        return [predicate_class]
+    cached = _field_key_to_predicate_class.get((fieldz_class, field.name, type_))
+    if cached is not None:
+        return [cached]
     guard.add((fieldz_class, field.name))
     predicate_classes_and_keys = _make_predicate_classes_and_keys_from_field(
         fieldz_class,
@@ -113,7 +132,7 @@ def _make_predicate_classes_from_fieldz_class(
             and not base_class.__name__.startswith("_")
             and base_class.__name__ != fieldz_class.__name__
         ):
-            get_or_make_predicate_classes_from_type(
+            _get_or_make_predicate_classes_from_type(
                 base_class,
                 make_predicate_classes_recursively=make_predicate_classes_recursively,
                 guard=guard,
@@ -125,7 +144,7 @@ def _make_predicate_classes_from_fieldz_class(
     )
     predicate_classes.append(predicate_class)
     for field in fieldz.fields(fieldz_class):
-        field_predicate_classes = get_or_make_predicate_classes_from_field(
+        field_predicate_classes = _get_or_make_predicate_classes_from_field(
             fieldz_class,
             field,
             type_=None,
@@ -151,19 +170,20 @@ def _make_predicate_classes_and_keys_from_field(
     predicate_class_bases = (clorm.Predicate,)
     type_hint = field.type
     types_ = fieldz_kb.typeinfo.get_types_from_type_hint(type_hint)
-    annotations = {"id_": clorm.ConstantStr}
     for type_ in types_:
         type_origin, type_args = type_
         if type_origin is not types.NoneType:
+            annotations = {"id_": clorm.ConstantStr}
             if type_origin in _base_types:
                 annotations["value"] = type_origin
             elif fieldz_kb.typeinfo.is_fieldz_class(type_origin):
                 annotations["value"] = clorm.ConstantStr
-                get_or_make_predicate_classes_from_type(type_origin)
+                if type_origin not in guard:
+                    _get_or_make_predicate_classes_from_type(type_origin)
             elif type_origin in _array_types:
                 for type_arg in type_args:
-                    if type_arg in _base_types:
-                        annotations["value"] = type_arg
+                    if type_arg[0] in _base_types:
+                        annotations["value"] = type_arg[0]
                     else:
                         annotations["value"] = clorm.ConstantStr
             else:
@@ -186,44 +206,70 @@ def _make_predicate_classes_and_keys_from_field(
     return predicate_classes
 
 
-def make_facts_from_fieldz_object(fieldz_object):
+def _make_facts_from_fieldz_object(fieldz_object):
     facts = []
     fieldz_class = type(fieldz_object)
-    fieldz_object_predicate_classes = get_or_make_predicate_classes_from_type(
+    fieldz_object_predicate_classes = _get_or_make_predicate_classes_from_type(
         fieldz_class
     )
-    fieldz_object_id = f"id_{id(fieldz_object)}"
+    fieldz_object_id = _make_fact_id()
     fieldz_object_predicate_class = fieldz_object_predicate_classes[0]
     fieldz_object_fact = fieldz_object_predicate_class(fieldz_object_id)
     facts.append(fieldz_object_fact)
     for field in fieldz.fields(fieldz_class):
         attribute_value = getattr(fieldz_object, field.name)
-        field_predicate_classes = get_or_make_predicate_classes_from_field(
-            fieldz_class, field, type(attribute_value)
-        )
-        field_predicate_class = field_predicate_classes[0]
+        attribute_value_type = type(attribute_value)
+        if attribute_value is None:
+            continue
         if type(attribute_value) in _base_types:
+            field_predicate_classes = _get_or_make_predicate_classes_from_field(
+                fieldz_class, field, type(attribute_value)
+            )
+            field_predicate_class = field_predicate_classes[0]
             values = [attribute_value]
-        elif fieldz_kb.typeinfo.is_fieldz_class(type(attribute_value)):
-            attribute_facts = make_facts_from_fieldz_object(attribute_value)
+        elif fieldz_kb.typeinfo.is_fieldz_class(attribute_value_type):
+            field_predicate_classes = _get_or_make_predicate_classes_from_field(
+                fieldz_class, field, type(attribute_value)
+            )
+            field_predicate_class = field_predicate_classes[0]
+            attribute_facts = _make_facts_from_fieldz_object(attribute_value)
             facts += attribute_facts
-            attribute_fact = facts[0]
-            value = [attribute_fact.id_]
-        elif type(attribute_value) in _array_types:
+            attribute_fact = attribute_facts[0]
+            values = [attribute_fact.id_]
+        elif attribute_value_type in _array_types:
             values = []
             for attribute_value_element in attribute_value:
-                if type(attribute_value_element) in _base_types:
+                attribute_value_element_type = type(attribute_value_element)
+                if attribute_value_element_type in _base_types:
+                    field_predicate_classes = _get_or_make_predicate_classes_from_field(
+                        fieldz_class, field, type(attribute_value_element)
+                    )
+                    field_predicate_class = field_predicate_classes[0]
                     values.append(attribute_value_element)
-                else:
-                    attribute_element_facts = make_facts_from_fieldz_object(
+                elif fieldz_kb.typeinfo.is_fieldz_class(attribute_value_element_type):
+                    field_predicate_classes = _get_or_make_predicate_classes_from_field(
+                        fieldz_class, field, type(attribute_value_element)
+                    )
+                    field_predicate_class = field_predicate_classes[0]
+                    attribute_element_facts = _make_facts_from_fieldz_object(
                         attribute_value_element
                     )
                     facts += attribute_element_facts
                     attribute_element_fact = attribute_element_facts[0]
                     values.append(attribute_element_fact.id_)
         else:
-            raise ValueError(f"type {type(attribute_value)} not supported")
+            raise ValueError(f"type {attribute_value_type} not supported")
         for value in values:
             field_fact = field_predicate_class(id_=fieldz_object_id, value=value)
-            facts.insert(0, field_fact)
+            facts = [
+                field_fact
+            ] + facts  # TODO: put at the end to have a more efficient append
     return facts
+
+
+def make_facts_from_object(obj):
+    type_ = type(obj)
+    if fieldz_kb.typeinfo.is_fieldz_class(type_):
+        return _make_facts_from_fieldz_object(obj)
+    else:
+        raise ValueError(f"type {type_} not supported")
