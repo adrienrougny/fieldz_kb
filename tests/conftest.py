@@ -90,12 +90,13 @@ def neo4j_connection():
     driver.close()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def cleanup_neo4j_database(neo4j_connection):
     """Fixture that cleans up the Neo4j database before each test.
 
     This ensures test isolation by deleting all nodes and relationships
-    before each test runs.
+    before each test runs. Not autouse — neo4j tests use their own
+    clear_database_before_tests fixture.
     """
     # Clean up before test
     fieldz_kb.neo4j.core.delete_all()
