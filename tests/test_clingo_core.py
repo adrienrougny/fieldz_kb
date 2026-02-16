@@ -31,7 +31,7 @@ class TestPredicateClassGeneration:
             name: str
             age: int
 
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(Person)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Person)
         assert len(pcs) >= 1
         assert issubclass(pcs[0], clorm.Predicate)
 
@@ -40,7 +40,7 @@ class TestPredicateClassGeneration:
         class Item:
             value: int
 
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(Item)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Item)
         main_pc = pcs[0]
         # Can instantiate with an id
         fact = main_pc("test_id")
@@ -51,12 +51,8 @@ class TestPredicateClassGeneration:
         class CachedClass:
             x: int
 
-        pcs1 = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(
-            CachedClass
-        )
-        pcs2 = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(
-            CachedClass
-        )
+        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(CachedClass)
+        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(CachedClass)
         assert pcs1[0] is pcs2[0]
 
     def test_cache_returns_consistent_shape(self):
@@ -65,12 +61,8 @@ class TestPredicateClassGeneration:
             name: str
             age: int
 
-        pcs1 = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(
-            Consistent
-        )
-        pcs2 = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(
-            Consistent
-        )
+        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Consistent)
+        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Consistent)
         # Cache hit should return the same list shape as cache miss
         assert len(pcs1) == len(pcs2)
 
@@ -80,7 +72,7 @@ class TestPredicateClassGeneration:
             name: str
             age: int
 
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(WithFields)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(WithFields)
         # Main predicate + one per field
         assert len(pcs) >= 3
 
@@ -93,7 +85,7 @@ class TestPredicateClassGeneration:
         class Outer:
             inner: Inner
 
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(Outer)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Outer)
         assert len(pcs) >= 2
 
     def test_optional_field_type(self):
@@ -101,9 +93,7 @@ class TestPredicateClassGeneration:
         class OptionalField:
             name: Optional[str] = None
 
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(
-            OptionalField
-        )
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(OptionalField)
         assert len(pcs) >= 1
 
     def test_list_field_type(self):
@@ -111,12 +101,12 @@ class TestPredicateClassGeneration:
         class WithList:
             items: List[int]
 
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(WithList)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(WithList)
         assert len(pcs) >= 2
 
     def test_unsupported_type_raises_error(self):
         with pytest.raises(ValueError, match="not supported"):
-            fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(int)
+            fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(int)
 
 
 class TestPredicateNaming:
@@ -127,7 +117,7 @@ class TestPredicateNaming:
         class MyClass:
             x: int
 
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(MyClass)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(MyClass)
         assert pcs[0].__name__ == "myClass"
 
     def test_field_predicate_has_prefix(self):
@@ -335,7 +325,7 @@ class TestResetCaches:
         class ResetTest:
             x: int
 
-        fieldz_kb.clingo.core._get_or_make_predicate_classes_from_type(ResetTest)
+        fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(ResetTest)
         assert ResetTest in fieldz_kb.clingo.core._type_to_predicate_class
 
         fieldz_kb.clingo.core.reset_caches()
