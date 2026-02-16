@@ -99,7 +99,7 @@ def _make_predicate_class(
     )
 
 
-def _get_or_make_predicate_classes_from_type(
+def get_or_make_predicate_classes_from_type(
     type_, module=None, make_predicate_classes_recursively=True, guard=None
 ):
     if guard is None:
@@ -177,7 +177,7 @@ def _make_predicate_classes_from_fieldz_class(
             and not base_class.__name__.startswith("_")
             and base_class.__name__ != fieldz_class.__name__
         ):
-            _get_or_make_predicate_classes_from_type(
+            get_or_make_predicate_classes_from_type(
                 base_class,
                 make_predicate_classes_recursively=make_predicate_classes_recursively,
                 guard=guard,
@@ -271,11 +271,11 @@ def _make_predicate_classes_and_keys_from_field(
         elif fieldz_kb.typeinfo.is_fieldz_class(type_origin):
             fields["value"] = clorm.ConstantStr
             if type_origin not in guard:
-                _get_or_make_predicate_classes_from_type(type_origin)
+                get_or_make_predicate_classes_from_type(type_origin)
         elif issubclass(type_origin, enum.Enum):
             fields["value"] = clorm.ConstantStr
             if type_origin not in guard:
-                _get_or_make_predicate_classes_from_type(type_origin)
+                get_or_make_predicate_classes_from_type(type_origin)
         elif type_origin in _array_types:
             for type_arg in type_args:
                 if type_arg[0] in _base_types:
@@ -301,7 +301,7 @@ def _make_predicate_classes_and_keys_from_field(
 def _make_facts_from_fieldz_object(fieldz_object):
     facts = []
     fieldz_class = type(fieldz_object)
-    fieldz_object_predicate_classes = _get_or_make_predicate_classes_from_type(
+    fieldz_object_predicate_classes = get_or_make_predicate_classes_from_type(
         fieldz_class
     )
     fieldz_object_id = _make_fact_id()
@@ -382,7 +382,7 @@ def _make_facts_from_fieldz_object(fieldz_object):
 
 def _make_facts_from_enum_object(enum_object):
     enum_class = type(enum_object)
-    predicate_classes = _get_or_make_predicate_classes_from_type(enum_class)
+    predicate_classes = get_or_make_predicate_classes_from_type(enum_class)
     predicate_class = predicate_classes[0]
     field_predicate_classes = predicate_classes[1:]
     enum_id = _make_fact_id()
@@ -404,7 +404,7 @@ def _make_facts_from_enum_object(enum_object):
 def make_ontology_rules_from_type(type_):
     rules = set([])
     guard = set([])
-    predicate_classes = _get_or_make_predicate_classes_from_type(
+    predicate_classes = get_or_make_predicate_classes_from_type(
         type_, make_predicate_classes_recursively=False, guard=guard
     )
     predicate_class = predicate_classes[0]
@@ -416,7 +416,7 @@ def make_ontology_rules_from_type(type_):
             and not base_class.__name__.startswith("_")
             and base_class.__name__ != type_.__name__
         ):
-            base_predicate_classes = _get_or_make_predicate_classes_from_type(
+            base_predicate_classes = get_or_make_predicate_classes_from_type(
                 base_class,
                 make_predicate_classes_recursively=False,
                 guard=guard,
