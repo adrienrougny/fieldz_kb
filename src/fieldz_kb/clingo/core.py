@@ -13,7 +13,6 @@ import abc
 import enum
 import itertools
 import types
-import re
 
 import clorm
 import fieldz
@@ -28,6 +27,7 @@ _ordered_array_types = (list, tuple)
 
 _type_to_predicate_class = {}
 _field_key_to_predicate_class = {}
+_object_to_id = {}
 _id_counter = itertools.count()
 
 
@@ -44,11 +44,16 @@ def reset_caches():
     global _id_counter
     _type_to_predicate_class.clear()
     _field_key_to_predicate_class.clear()
+    _object_to_id.clear()
     _id_counter = itertools.count()
 
 
-def _make_fact_id():
-    return f"id_{next(_id_counter)}"
+def _make_fact_id(obj):
+    id_ = _object_to_id.get(obj)
+    if id_ is None:
+        id_ = f"id_{next(_id_counter)}"
+        _object_to_id[obj] = id_
+    return id_
 
 
 def _make_predicate_class_name_from_type(type_):
@@ -298,13 +303,16 @@ def _make_predicate_classes_and_keys_from_field(
     return predicate_classes
 
 
-def _make_facts_from_fieldz_object(fieldz_object):
+def _make_facts_from_fieldz_object(fieldz_object, id_to_object=None):
+    if id_to_object is None:
+        id_to_object = {}
     facts = []
     fieldz_class = type(fieldz_object)
     fieldz_object_predicate_classes = get_or_make_predicate_classes_from_type(
         fieldz_class
     )
-    fieldz_object_id = _make_fact_id()
+    fieldz_object_id = _make_fact_id(fieldz_object)
+    id_to_object[fieldz_object_id] = fieldz_object
     fieldz_object_predicate_class = fieldz_object_predicate_classes[0]
     fieldz_object_fact = fieldz_object_predicate_class(fieldz_object_id)
     facts.append(fieldz_object_fact)
@@ -324,7 +332,9 @@ def _make_facts_from_fieldz_object(fieldz_object):
                 fieldz_class, field, type(attribute_value)
             )
             field_predicate_class = field_predicate_classes[0]
-            attribute_facts = make_facts_from_object(attribute_value)
+            attribute_facts = make_facts_from_object(
+                attribute_value, id_to_object=id_to_object
+            )
             facts += attribute_facts
             attribute_fact = attribute_facts[0]
             values = [attribute_fact.id_]
@@ -333,7 +343,9 @@ def _make_facts_from_fieldz_object(fieldz_object):
                 fieldz_class, field, type(attribute_value)
             )
             field_predicate_class = field_predicate_classes[0]
-            enum_facts = make_facts_from_object(attribute_value)
+            enum_facts = make_facts_from_object(
+                attribute_value, id_to_object=id_to_object
+            )
             facts += enum_facts
             enum_fact = enum_facts[0]
             values = [enum_fact.id_]
@@ -356,7 +368,7 @@ def _make_facts_from_fieldz_object(fieldz_object):
                     )
                     field_predicate_class = field_predicate_classes[0]
                     attribute_element_facts = make_facts_from_object(
-                        attribute_value_element
+                        attribute_value_element, id_to_object=id_to_object
                     )
                     facts += attribute_element_facts
                     attribute_element_fact = attribute_element_facts[0]
@@ -366,7 +378,9 @@ def _make_facts_from_fieldz_object(fieldz_object):
                         fieldz_class, field, type(attribute_value_element)
                     )
                     field_predicate_class = field_predicate_classes[0]
-                    enum_element_facts = make_facts_from_object(attribute_value_element)
+                    enum_element_facts = make_facts_from_object(
+                        attribute_value_element, id_to_object=id_to_object
+                    )
                     facts += enum_element_facts
                     enum_element_fact = enum_element_facts[0]
                     values.append(enum_element_fact.id_)
@@ -380,12 +394,15 @@ def _make_facts_from_fieldz_object(fieldz_object):
     return facts
 
 
-def _make_facts_from_enum_object(enum_object):
+def _make_facts_from_enum_object(enum_object, id_to_object=None):
+    if id_to_object is None:
+        id_to_object = {}
     enum_class = type(enum_object)
     predicate_classes = get_or_make_predicate_classes_from_type(enum_class)
     predicate_class = predicate_classes[0]
     field_predicate_classes = predicate_classes[1:]
-    enum_id = _make_fact_id()
+    enum_id = _make_fact_id(enum_object)
+    id_to_object[enum_id] = enum_object
     facts = []
     fact = predicate_class(id_=enum_id)
     facts.append(fact)
@@ -429,11 +446,13 @@ def make_ontology_rules_from_type(type_):
     return sorted(list(rules))
 
 
-def make_facts_from_object(obj):
+def make_facts_from_object(obj, id_to_object=None):
+    if id_to_object is None:
+        id_to_object = {}
     type_ = type(obj)
     if fieldz_kb.typeinfo.is_fieldz_class(type_):
-        return _make_facts_from_fieldz_object(obj)
+        return _make_facts_from_fieldz_object(obj, id_to_object=id_to_object)
     elif issubclass(type_, enum.Enum):
-        return _make_facts_from_enum_object(obj)
+        return _make_facts_from_enum_object(obj, id_to_object=id_to_object)
     else:
         raise ValueError(f"type {type_} not supported")
