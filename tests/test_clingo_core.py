@@ -31,7 +31,7 @@ class TestPredicateClassGeneration:
             name: str
             age: int
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Person)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Person)
         assert len(pcs) >= 1
         assert issubclass(pcs[0], clorm.Predicate)
 
@@ -40,7 +40,7 @@ class TestPredicateClassGeneration:
         class Item:
             value: int
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Item)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Item)
         main_pc = pcs[0]
         # Can instantiate with an id
         fact = main_pc("test_id")
@@ -51,8 +51,8 @@ class TestPredicateClassGeneration:
         class CachedClass:
             x: int
 
-        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(CachedClass)
-        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(CachedClass)
+        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(CachedClass)
+        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(CachedClass)
         assert pcs1[0] is pcs2[0]
 
     def test_cache_returns_consistent_shape(self):
@@ -61,8 +61,8 @@ class TestPredicateClassGeneration:
             name: str
             age: int
 
-        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Consistent)
-        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Consistent)
+        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Consistent)
+        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Consistent)
         # Cache hit should return the same list shape as cache miss
         assert len(pcs1) == len(pcs2)
 
@@ -72,7 +72,7 @@ class TestPredicateClassGeneration:
             name: str
             age: int
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(WithFields)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(WithFields)
         # Main predicate + one per field
         assert len(pcs) >= 3
 
@@ -85,7 +85,7 @@ class TestPredicateClassGeneration:
         class Outer:
             inner: Inner
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(Outer)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Outer)
         assert len(pcs) >= 2
 
     def test_optional_field_type(self):
@@ -93,7 +93,7 @@ class TestPredicateClassGeneration:
         class OptionalField:
             name: Optional[str] = None
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(OptionalField)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(OptionalField)
         assert len(pcs) >= 1
 
     def test_list_field_type(self):
@@ -101,12 +101,12 @@ class TestPredicateClassGeneration:
         class WithList:
             items: List[int]
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(WithList)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(WithList)
         assert len(pcs) >= 2
 
     def test_unsupported_type_raises_error(self):
         with pytest.raises(ValueError, match="not supported"):
-            fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(int)
+            fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(int)
 
 
 class TestPredicateNaming:
@@ -117,7 +117,7 @@ class TestPredicateNaming:
         class MyClass:
             x: int
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(MyClass)
+        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(MyClass)
         assert pcs[0].__name__ == "myClass"
 
     def test_field_predicate_has_prefix(self):
@@ -126,7 +126,7 @@ class TestPredicateNaming:
             my_field: int
 
         fields_ = fieldz.fields(Named)
-        pcs = fieldz_kb.clingo.core._get_or_make_predicate_classes_from_field(
+        pcs = fieldz_kb.clingo.core._default_context.get_or_make_predicate_classes_from_field(
             Named, fields_[0]
         )
         # Field predicates should have "has" prefix in their predicate name
@@ -143,7 +143,7 @@ class TestFactGeneration:
             age: int
 
         obj = Simple(name="Alice", age=30)
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         assert len(facts) > 0
 
     def test_entity_fact_present(self):
@@ -152,7 +152,7 @@ class TestFactGeneration:
             x: int
 
         obj = Entity(x=42)
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         # There should be an entity fact with an id_
         entity_facts = [f for f in facts if type(f).__name__ == "entity"]
         assert len(entity_facts) == 1
@@ -164,7 +164,7 @@ class TestFactGeneration:
             x: int
 
         obj = Valued(x=42)
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         value_facts = [f for f in facts if hasattr(f, "value")]
         assert any(f.value == 42 for f in value_facts)
 
@@ -174,7 +174,7 @@ class TestFactGeneration:
             name: str
 
         obj = WithString(name="Alice")
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         value_facts = [f for f in facts if hasattr(f, "value")]
         assert any(f.value == "Alice" for f in value_facts)
 
@@ -185,7 +185,7 @@ class TestFactGeneration:
             nickname: Optional[str] = None
 
         obj = OptObj(name="Alice", nickname=None)
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         # Should succeed without error
         assert len(facts) > 0
         # Should have facts for name but not for nickname
@@ -205,7 +205,7 @@ class TestFactGeneration:
 
         addr = Address(city="NYC")
         person = Person(name="Alice", address=addr)
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(person)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(person)
 
         # Should have entity facts for both Person and Address
         entity_type_names = {type(f).__name__ for f in facts if not hasattr(f, "value")}
@@ -222,7 +222,7 @@ class TestFactGeneration:
             inner: Inner
 
         obj = Outer(inner=Inner(value=42))
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
 
         # The outer entity's hasInner fact should reference the inner entity's id
         inner_entity = [f for f in facts if type(f).__name__ == "inner"]
@@ -243,7 +243,7 @@ class TestFactGeneration:
             tags: List[str]
 
         obj = WithTags(tags=["a", "b", "c"])
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         assert len(facts) > 0
         # Should have 3 value facts for tags
         value_facts = [f for f in facts if hasattr(f, "value")]
@@ -261,7 +261,7 @@ class TestFactGeneration:
             items: List[Item]
 
         obj = Container(items=[Item(value=1), Item(value=2)])
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         assert len(facts) > 0
 
         # Should have entity facts for the container and both items
@@ -274,7 +274,7 @@ class TestFactGeneration:
             x: int
 
         obj = Det(x=1)
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         entity_fact = [f for f in facts if type(f).__name__ == "det"][0]
         # ID should follow counter pattern, not memory addresses
         assert entity_fact.id_ == "id_0"
@@ -286,8 +286,8 @@ class TestFactGeneration:
 
         obj1 = Seq(x=1)
         obj2 = Seq(x=2)
-        facts1 = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj1)
-        facts2 = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj2)
+        facts1 = fieldz_kb.clingo.core.make_facts_from_object(obj1)
+        facts2 = fieldz_kb.clingo.core.make_facts_from_object(obj2)
 
         entity1 = [f for f in facts1 if type(f).__name__ == "seq"][0]
         entity2 = [f for f in facts2 if type(f).__name__ == "seq"][0]
@@ -300,7 +300,7 @@ class TestFactGeneration:
             items: List[int] = field(default_factory=list)
 
         obj = EmptyList(items=[])
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         # Should have just the entity fact, no value facts
         entity_facts = [f for f in facts if type(f).__name__ == "emptyList"]
         assert len(entity_facts) == 1
@@ -314,7 +314,7 @@ class TestFactGeneration:
 
         obj = BadType(data={"a": 1})
         with pytest.raises(ValueError, match="not supported"):
-            fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+            fieldz_kb.clingo.core.make_facts_from_object(obj)
 
 
 class TestResetCaches:
@@ -325,11 +325,11 @@ class TestResetCaches:
         class ResetTest:
             x: int
 
-        fieldz_kb.clingo.core.get_or_make_predicate_class_from_type(ResetTest)
-        assert ResetTest in fieldz_kb.clingo.core._type_to_predicate_class
+        fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(ResetTest)
+        assert ResetTest in fieldz_kb.clingo.core._default_context.type_to_predicate_class
 
         fieldz_kb.clingo.core.reset_caches()
-        assert ResetTest not in fieldz_kb.clingo.core._type_to_predicate_class
+        assert ResetTest not in fieldz_kb.clingo.core._default_context.type_to_predicate_class
 
     def test_reset_resets_id_counter(self):
         @dataclass
@@ -337,12 +337,12 @@ class TestResetCaches:
             x: int
 
         obj = CounterTest(x=1)
-        facts = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
         entity = [f for f in facts if type(f).__name__ == "counterTest"][0]
         first_id = entity.id_
 
         fieldz_kb.clingo.core.reset_caches()
 
-        facts2 = fieldz_kb.clingo.core._make_facts_from_fieldz_object(obj)
+        facts2 = fieldz_kb.clingo.core.make_facts_from_object(obj)
         entity2 = [f for f in facts2 if type(f).__name__ == "counterTest"][0]
         assert entity2.id_ == first_id  # Same id after reset

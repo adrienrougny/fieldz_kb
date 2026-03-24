@@ -79,7 +79,7 @@ class TestNodeClassGeneration:
             name: str
             age: int
 
-        node_class = fieldz_kb.neo4j.core._make_node_class_from_type(SimplePerson)
+        node_class = fieldz_kb.neo4j.core.get_or_make_node_class_from_type(SimplePerson)
 
         # Check class name
         assert node_class.__name__ == "SimplePerson"
@@ -99,7 +99,7 @@ class TestNodeClassGeneration:
             GREEN = "green"
             BLUE = "blue"
 
-        node_class = fieldz_kb.neo4j.core._make_node_class_from_type(Color)
+        node_class = fieldz_kb.neo4j.core.get_or_make_node_class_from_type(Color)
 
         assert node_class.__name__ == "Color"
         assert hasattr(node_class, "name")
@@ -113,7 +113,7 @@ class TestNodeClassGeneration:
             MEDIUM = 2
             HIGH = 3
 
-        node_class = fieldz_kb.neo4j.core._make_node_class_from_type(Priority)
+        node_class = fieldz_kb.neo4j.core.get_or_make_node_class_from_type(Priority)
 
         assert node_class.__name__ == "Priority"
         assert hasattr(node_class, "name")
@@ -127,7 +127,7 @@ class TestNodeClassGeneration:
             NUMBER = 42
 
         with pytest.raises(ValueError, match="types of values must all be the same"):
-            fieldz_kb.neo4j.core._make_node_class_from_type(MixedEnum)
+            fieldz_kb.neo4j.core.get_or_make_node_class_from_type(MixedEnum)
 
     def test_make_node_class_with_list_field(self):
         """Test creating node class with list field."""
@@ -137,7 +137,7 @@ class TestNodeClassGeneration:
             name: str
             tags: List[str]
 
-        node_class = fieldz_kb.neo4j.core._make_node_class_from_type(ListPerson)
+        node_class = fieldz_kb.neo4j.core.get_or_make_node_class_from_type(ListPerson)
 
         assert hasattr(node_class, "name")
         assert hasattr(node_class, "tags")
@@ -150,7 +150,7 @@ class TestNodeClassGeneration:
             name: str
             nickname: Optional[str] = None
 
-        node_class = fieldz_kb.neo4j.core._make_node_class_from_type(OptionalPerson)
+        node_class = fieldz_kb.neo4j.core.get_or_make_node_class_from_type(OptionalPerson)
 
         assert hasattr(node_class, "name")
         assert hasattr(node_class, "nickname")
@@ -486,7 +486,7 @@ class TestNodePropertyGeneration:
             name: str
 
         field = fieldz.fields(PropertyPerson)[0]
-        prop = fieldz_kb.neo4j.core._make_node_property_from_field(field)
+        prop = fieldz_kb.neo4j.core._default_context.make_node_property_from_field(field)
 
         assert prop is not None
 
@@ -498,7 +498,7 @@ class TestNodePropertyGeneration:
             tags: List[str]
 
         field = fieldz.fields(ArrayPerson)[0]
-        prop = fieldz_kb.neo4j.core._make_node_property_from_field(field)
+        prop = fieldz_kb.neo4j.core._default_context.make_node_property_from_field(field)
 
         assert prop is not None
 
@@ -510,7 +510,7 @@ class TestNodePropertyGeneration:
             nickname: Optional[str] = None
 
         field = fieldz.fields(OptionalNicknamePerson)[0]
-        prop = fieldz_kb.neo4j.core._make_node_property_from_field(field)
+        prop = fieldz_kb.neo4j.core._default_context.make_node_property_from_field(field)
 
         assert prop is not None
 
@@ -532,7 +532,7 @@ class TestTypeMappings:
         }
 
         for type_, expected_class in expected_mappings.items():
-            assert fieldz_kb.neo4j.core._type_to_node_class[type_] == expected_class
+            assert fieldz_kb.neo4j.core._default_context.type_to_node_class[type_] == expected_class
 
     def test_property_class_mappings(self):
         """Test base type to property class mappings."""
@@ -547,7 +547,7 @@ class TestTypeMappings:
 
         for type_, expected_class in expected_mappings.items():
             assert (
-                fieldz_kb.neo4j.core._type_to_node_base_property_class[type_]
+                fieldz_kb.neo4j.core._default_context.type_to_node_base_property_class[type_]
                 == expected_class
             )
 
