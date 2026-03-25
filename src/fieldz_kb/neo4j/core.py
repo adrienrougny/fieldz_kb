@@ -531,7 +531,7 @@ class Neo4jContext:
     def make_nodes_from_object(
         self,
         object_,
-        integration_mode=None,
+        integration_mode: typing.Literal["hash", "id"] = "id",
         exclude_from_integration=None,
         object_to_node=None,
     ):
@@ -539,7 +539,7 @@ class Neo4jContext:
 
         Args:
             object_: The object to convert.
-            integration_mode: How to handle duplicate objects ("hash", "id", or None).
+            integration_mode: How to handle duplicate objects ("hash" or "id").
             exclude_from_integration: Types to exclude from integration logic.
             object_to_node: Cache mapping objects to their nodes for deduplication.
 
@@ -550,16 +550,14 @@ class Neo4jContext:
             exclude_from_integration = tuple()
         if object_to_node is None:
             object_to_node = {}
-        if integration_mode is not None and not isinstance(
-            object_, exclude_from_integration
-        ):
+        if not isinstance(object_, exclude_from_integration):
             if integration_mode == "hash":
                 if not isinstance(object_, collections.abc.Hashable):
                     raise ValueError(
                         f"object of type {type(object_)} not hashable, cannot use hash integration mode"
                     )
                 node = object_to_node.get(object_)
-            elif integration_mode == "id":
+            else:
                 node = object_to_node.get(id(object_))
             if node is not None:
                 return [node], []
@@ -579,7 +577,7 @@ class Neo4jContext:
             self.node_class_to_type[node_class] = class_
         if integration_mode == "hash":
             object_to_node[object_] = nodes[0]
-        elif integration_mode == "id":
+        else:
             object_to_node[id(object_)] = nodes[0]
         return nodes, to_connect
 
@@ -1182,7 +1180,7 @@ def get_or_make_node_class_from_type(
 
 def make_nodes_from_object(
     object_,
-    integration_mode: typing.Literal["hash", "id"] | None = None,
+    integration_mode: typing.Literal["hash", "id"] = "id",
     exclude_from_integration=None,
     object_to_node=None,
 ):
@@ -1190,7 +1188,7 @@ def make_nodes_from_object(
 
     Args:
         object_: The object to convert
-        integration_mode: How to handle duplicate objects ("hash", "id", or None)
+        integration_mode: How to handle duplicate objects ("hash" or "id")
         exclude_from_integration: Types to exclude from integration logic
         object_to_node: Cache mapping objects to their nodes for deduplication
 
@@ -1269,14 +1267,14 @@ def register_make_object_function(node_class, function):
 
 def save_from_object(
     object_,
-    integration_mode: typing.Literal["hash", "id"] | None = None,
+    integration_mode: typing.Literal["hash", "id"] = "id",
     exclude_from_integration=None,
 ):
     """Save a single object to Neo4j.
 
     Args:
         object_: The object to save
-        integration_mode: How to handle duplicate objects ("hash", "id", or None)
+        integration_mode: How to handle duplicate objects ("hash" or "id")
         exclude_from_integration: Types to exclude from integration logic
     """
     save_from_objects(
@@ -1289,14 +1287,14 @@ def save_from_object(
 @neomodel.db.transaction
 def save_from_objects(
     objects,
-    integration_mode: typing.Literal["hash", "id"] | None = None,
+    integration_mode: typing.Literal["hash", "id"] = "id",
     exclude_from_integration=None,
 ):
     """Save multiple objects to Neo4j in a single transaction.
 
     Args:
         objects: The objects to save
-        integration_mode: How to handle duplicate objects ("hash", "id", or None)
+        integration_mode: How to handle duplicate objects ("hash" or "id")
         exclude_from_integration: Types to exclude from integration logic
 
     Raises:
