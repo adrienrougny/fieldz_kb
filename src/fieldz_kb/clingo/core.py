@@ -10,8 +10,10 @@ to clingo predicates. It includes:
 """
 
 import abc
+import collections.abc
 import enum
 import itertools
+import typing
 import types
 
 import clorm
@@ -116,7 +118,7 @@ class ClingoTypePlugin(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def make_facts(self, obj, ctx, id_to_object=None):
+    def make_facts(self, obj, ctx, id_to_object=None, integration_mode="id", exclude_from_integration=None):
         """Convert a Python object to clingo facts.
 
         Returns:
@@ -186,19 +188,39 @@ class ClingoContext:
         self.object_to_id.clear()
         self.id_counter = itertools.count()
 
-    def make_fact_id(self, obj):
+    def make_fact_id(
+        self,
+        obj,
+        integration_mode: typing.Literal["hash", "id"] = "id",
+        exclude_from_integration=None,
+    ):
         """Get or create a fact ID for an object.
 
         Args:
             obj: The object to get/create an ID for.
+            integration_mode: How to key the dedup cache ("hash" or "id").
+            exclude_from_integration: Types to exclude from deduplication.
 
         Returns:
             A string ID like "id_0", "id_1", etc.
         """
-        id_ = self.object_to_id.get(obj)
+        if exclude_from_integration is None:
+            exclude_from_integration = tuple()
+        if isinstance(obj, exclude_from_integration):
+            id_ = f"id_{next(self.id_counter)}"
+            return id_
+        if integration_mode == "hash":
+            if not isinstance(obj, collections.abc.Hashable):
+                raise ValueError(
+                    f"object of type {type(obj)} not hashable, cannot use hash integration mode"
+                )
+            key = obj
+        else:
+            key = id(obj)
+        id_ = self.object_to_id.get(key)
         if id_ is None:
             id_ = f"id_{next(self.id_counter)}"
-            self.object_to_id[obj] = id_
+            self.object_to_id[key] = id_
         return id_
 
     def get_or_make_predicate_classes_from_type(
@@ -274,12 +296,20 @@ class ClingoContext:
             self.field_key_to_predicate_class[key] = predicate_class
         return [_[0] for _ in predicate_classes_and_keys]
 
-    def make_facts_from_object(self, obj, id_to_object=None):
+    def make_facts_from_object(
+        self,
+        obj,
+        id_to_object=None,
+        integration_mode: typing.Literal["hash", "id"] = "id",
+        exclude_from_integration=None,
+    ):
         """Convert a Python object to clingo facts.
 
         Args:
             obj: The object to convert.
             id_to_object: Optional cache mapping fact IDs to objects.
+            integration_mode: How to handle duplicate objects ("hash" or "id").
+            exclude_from_integration: Types to exclude from integration logic.
 
         Returns:
             A list of clorm facts.
@@ -288,7 +318,12 @@ class ClingoContext:
             id_to_object = {}
         type_ = type(obj)
         plugin = self.get_plugin_for_type(type_)
-        return plugin.make_facts(obj, self, id_to_object=id_to_object)
+        return plugin.make_facts(
+            obj, self,
+            id_to_object=id_to_object,
+            integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -400,7 +435,7 @@ class FieldzClassPlugin(ClingoTypePlugin):
             predicate_classes += field_predicate_classes
         return predicate_classes
 
-    def make_facts(self, obj, ctx, id_to_object=None):
+    def make_facts(self, obj, ctx, id_to_object=None, integration_mode="id", exclude_from_integration=None):
         if id_to_object is None:
             id_to_object = {}
         facts = []
@@ -408,7 +443,10 @@ class FieldzClassPlugin(ClingoTypePlugin):
         fieldz_object_predicate_classes = ctx.get_or_make_predicate_classes_from_type(
             fieldz_class
         )
-        fieldz_object_id = ctx.make_fact_id(obj)
+        fieldz_object_id = ctx.make_fact_id(
+            obj, integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+        )
         id_to_object[fieldz_object_id] = obj
         fieldz_object_predicate_class = fieldz_object_predicate_classes[0]
         fieldz_object_fact = fieldz_object_predicate_class(fieldz_object_id)
@@ -430,7 +468,9 @@ class FieldzClassPlugin(ClingoTypePlugin):
                 )
                 field_predicate_class = field_predicate_classes[0]
                 attribute_facts = ctx.make_facts_from_object(
-                    attribute_value, id_to_object=id_to_object
+                    attribute_value, id_to_object=id_to_object,
+                    integration_mode=integration_mode,
+                    exclude_from_integration=exclude_from_integration,
                 )
                 facts += attribute_facts
                 attribute_fact = attribute_facts[0]
@@ -441,7 +481,9 @@ class FieldzClassPlugin(ClingoTypePlugin):
                 )
                 field_predicate_class = field_predicate_classes[0]
                 enum_facts = ctx.make_facts_from_object(
-                    attribute_value, id_to_object=id_to_object
+                    attribute_value, id_to_object=id_to_object,
+                    integration_mode=integration_mode,
+                    exclude_from_integration=exclude_from_integration,
                 )
                 facts += enum_facts
                 enum_fact = enum_facts[0]
@@ -471,7 +513,9 @@ class FieldzClassPlugin(ClingoTypePlugin):
                         )
                         field_predicate_class = field_predicate_classes[0]
                         attribute_element_facts = ctx.make_facts_from_object(
-                            attribute_value_element, id_to_object=id_to_object
+                            attribute_value_element, id_to_object=id_to_object,
+                            integration_mode=integration_mode,
+                            exclude_from_integration=exclude_from_integration,
                         )
                         facts += attribute_element_facts
                         attribute_element_fact = attribute_element_facts[0]
@@ -484,7 +528,9 @@ class FieldzClassPlugin(ClingoTypePlugin):
                         )
                         field_predicate_class = field_predicate_classes[0]
                         enum_element_facts = ctx.make_facts_from_object(
-                            attribute_value_element, id_to_object=id_to_object
+                            attribute_value_element, id_to_object=id_to_object,
+                            integration_mode=integration_mode,
+                            exclude_from_integration=exclude_from_integration,
                         )
                         facts += enum_element_facts
                         enum_element_fact = enum_element_facts[0]
@@ -553,14 +599,17 @@ class EnumPlugin(ClingoTypePlugin):
 
         return predicate_classes
 
-    def make_facts(self, obj, ctx, id_to_object=None):
+    def make_facts(self, obj, ctx, id_to_object=None, integration_mode="id", exclude_from_integration=None):
         if id_to_object is None:
             id_to_object = {}
         enum_class = type(obj)
         predicate_classes = ctx.get_or_make_predicate_classes_from_type(enum_class)
         predicate_class = predicate_classes[0]
         field_predicate_classes = predicate_classes[1:]
-        enum_id = ctx.make_fact_id(obj)
+        enum_id = ctx.make_fact_id(
+            obj, integration_mode=integration_mode,
+            exclude_from_integration=exclude_from_integration,
+        )
         id_to_object[enum_id] = obj
         facts = []
         fact = predicate_class(id_=enum_id)
@@ -625,17 +674,26 @@ def get_or_make_predicate_classes_from_type(
     )
 
 
-def make_facts_from_object(obj, id_to_object=None):
+def make_facts_from_object(
+    obj,
+    id_to_object=None,
+    integration_mode: typing.Literal["hash", "id"] = "id",
+    exclude_from_integration=None,
+):
     """Convert a Python object to clingo facts.
 
     Args:
         obj: The object to convert.
         id_to_object: Optional cache mapping fact IDs to objects.
+        integration_mode: How to handle duplicate objects ("hash" or "id").
+        exclude_from_integration: Types to exclude from integration logic.
 
     Returns:
         A list of clorm facts.
     """
-    return _default_context.make_facts_from_object(obj, id_to_object)
+    return _default_context.make_facts_from_object(
+        obj, id_to_object, integration_mode, exclude_from_integration
+    )
 
 
 def make_ontology_rules_from_type(type_):
