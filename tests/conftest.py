@@ -2,7 +2,7 @@
 
 import pytest
 
-import fieldz_kb.neo4j.core
+from fieldz_kb.lpg.neo4j.neomodel import Session, NeomodelBackend
 
 
 @pytest.fixture
@@ -59,8 +59,8 @@ def sample_priority_enum():
 
 
 @pytest.fixture(scope="session")
-def neo4j_connection():
-    """Fixture providing a real Neo4j database connection.
+def neo4j_neomodel_session():
+    """Fixture providing a neomodel Session connected to Neo4j.
 
     Requires credentials in tests/credentials.py:
     - URI: hostname of the Neo4j server
@@ -69,7 +69,6 @@ def neo4j_connection():
     """
     from tests import credentials
 
-    # Check if credentials exist
     if (
         not hasattr(credentials, "URI")
         or not hasattr(credentials, "USERNAME")
@@ -77,49 +76,9 @@ def neo4j_connection():
     ):
         raise ValueError("credentials.py must define URI, USERNAME, and PASSWORD")
 
-    # Connect to Neo4j
-    driver = fieldz_kb.neo4j.core.connect(
+    backend = NeomodelBackend(
         hostname=credentials.URI,
         username=credentials.USERNAME,
         password=credentials.PASSWORD,
     )
-
-    yield driver
-
-    # Cleanup: close the driver after all tests
-    driver.close()
-
-
-@pytest.fixture
-def cleanup_neo4j_database(neo4j_connection):
-    """Fixture that cleans up the Neo4j database before each test.
-
-    This ensures test isolation by deleting all nodes and relationships
-    before each test runs. Not autouse — neo4j tests use their own
-    clear_database_before_tests fixture.
-    """
-    # Clean up before test
-    fieldz_kb.neo4j.core.delete_all()
-
-    yield
-
-    # Clean up after test
-    fieldz_kb.neo4j.core.delete_all()
-
-
-@pytest.fixture
-def mock_neo4j_connection():
-    """Fixture providing a mocked Neo4j connection (kept for backwards compatibility)."""
-    from unittest.mock import Mock, patch
-
-    with (
-        patch("fieldz_kb.neo4j.core.neo4j.GraphDatabase") as mock_db,
-        patch("fieldz_kb.neo4j.core.neomodel.db") as mock_neomodel,
-    ):
-        mock_driver = Mock()
-        mock_db.return_value.driver.return_value = mock_driver
-
-        yield {
-            "driver": mock_driver,
-            "neomodel_db": mock_neomodel,
-        }
+    return Session(backend)

@@ -12,7 +12,7 @@ to Neo4j nodes and relationships, with support for:
 
 Example:
     >>> from dataclasses import dataclass
-    >>> import fieldz_kb.neo4j.core
+    >>> import fieldz_kb.lpg.neo4j.neomodel
     >>>
     >>> @dataclass
     >>> class Person:
@@ -20,9 +20,9 @@ Example:
     >>>     age: int
     >>>
     >>> # Connect to Neo4j
-    >>> driver = fieldz_kb.neo4j.core.connect("localhost", "neo4j", "password")
+    >>> driver = fieldz_kb.lpg.neo4j.neomodel.connect("localhost", "neo4j", "password")
     >>>
     >>> # Save an object
     >>> person = Person(name="Alice", age=30)
-    >>> fieldz_kb.neo4j.core.save_from_object(person)
+    >>> fieldz_kb.lpg.neo4j.neomodel.save_from_object(person)
 """

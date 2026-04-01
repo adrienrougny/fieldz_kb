@@ -6,7 +6,7 @@ from fieldz classes.
 
 import yaml
 import neomodel
-import fieldz_kb.neo4j.core
+import fieldz_kb.lpg.neo4j.neomodel.core
 
 
 def make_biocypher_schema_string_from_classes(classes):
@@ -21,7 +21,7 @@ def make_biocypher_schema_string_from_classes(classes):
     classes = set(classes)
     schema = {}
     for class_ in classes:
-        node_class = fieldz_kb.neo4j.core.get_or_make_node_class_from_type(
+        node_class = fieldz_kb.lpg.neo4j.neomodel.core.get_or_make_node_class_from_type(
             class_, make_node_classes_recursively=True
         )
         label = node_class.__name__
