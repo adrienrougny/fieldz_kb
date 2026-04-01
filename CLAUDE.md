@@ -30,11 +30,36 @@ tox -e py312       # specific version
 
 ## Architecture
 
-Three backend modules convert objects through a shared type introspection layer:
+### Shared layers
 
 - **`typeinfo.py`** — Extracts structured type information from type hints. Returns nested `(type_origin, type_args)` tuples. Handles unions, optionals, generics, and forward references via `typing._eval_type()`.
 
-- **`neo4j/core.py`** — Dynamically generates `neomodel.StructuredNode` subclasses from Python types using `type()`. Base types become value nodes (Integer, String, etc.), collections become container nodes with ordered/unordered relationships, dataclasses become node classes with relationship edges per field. Global caches `_type_to_node_class` / `_node_class_to_type` track generated classes. Key public API: `connect()`, `save_from_object()`, `make_object_from_node()`, `cypher_query_as_objects()`.
+- **`utils.py`** — Shared helpers for type classification, relationship naming, and field introspection. Used by both neomodel and pylpg backends.
+
+### LPG backends (`lpg/`)
+
+All labeled property graph backends follow the **Backend + Session** pattern:
+
+```python
+from fieldz_kb.lpg.neo4j.pylpg import Session, Neo4jBackend
+with Session(Neo4jBackend(hostname="localhost")) as session:
+    session.save_from_object(person)
+    session.execute_query_as_objects("MATCH (n:Person) RETURN n")
+```
+
+- **`lpg/pylpg/core.py`** — Plugin system for pylpg: dynamically generates `pylpg.Node` subclasses from Python types. Base types become value nodes, collections become container nodes, dataclasses become node classes with relationship descriptors. Plugin-based extensibility via `PylpgTypePlugin` and `PylpgContext`.
+
+- **`lpg/pylpg/session.py`** — Session wrapping `pylpg.Session`. Provides `save_from_object()`, `save_from_objects()`, `make_object_from_node()`, `execute_query()`, `execute_query_as_objects()`, `delete_all()`.
+
+- **`lpg/neo4j/neomodel/core.py`** — Plugin system for neomodel: dynamically generates `neomodel.StructuredNode` subclasses. Same plugin architecture as pylpg.
+
+- **`lpg/neo4j/neomodel/session.py`** — Session wrapping `neomodel.db`. Same public interface as pylpg Session.
+
+- **`lpg/neo4j/neomodel/backend.py`** — `NeomodelBackend` data holder for connection parameters.
+
+- **`lpg/neo4j/pylpg.py`**, **`lpg/falkordb/pylpg.py`**, **`lpg/falkordblite/pylpg.py`** — Re-export modules for convenience imports.
+
+### Other backends
 
 - **`clingo/core.py`** — Generates `clorm.Predicate` classes from types. Each dataclass produces a base predicate plus per-field predicates. Caches in `_type_to_predicate_class` / `_field_key_to_predicate_class`. Key public API: `get_or_make_predicate_classes_from_type()`, `make_facts_from_object()`, `make_ontology_rules_from_type()`.
 
@@ -42,9 +67,11 @@ Three backend modules convert objects through a shared type introspection layer:
 
 ### Key design patterns
 
-- **Global caches** for dynamically generated classes (node classes, predicate classes). Both backends have `reset_caches()` functions.
+- **Backend + Session** for all LPG backends. Users create a Backend, pass it to Session, and use session methods.
+- **Plugin-based type conversion** via `TypePlugin` ABCs and `Context` dispatchers. Both pylpg and neomodel have their own plugin systems.
+- **Global caches** for dynamically generated classes (node classes, predicate classes).
 - **Guard sets** prevent infinite recursion when processing cyclic/self-referential type definitions.
-- **Integration modes** for `save_from_objects()`: `"hash"` (dedup by hash), `"id"` (dedup by Python `id()`), or `None` (no dedup).
+- **Integration modes** for `save_from_objects()`: `"hash"` (dedup by hash), `"id"` (dedup by Python `id()`).
 - **Relationship naming**: field names are singularized via `inflect` and uppercased (e.g., `employees` → `HAS_EMPLOYEE`).
 - **Custom function registration**: `register_make_nodes_function()` and `register_make_object_function()` allow overriding conversion for specific types.
 

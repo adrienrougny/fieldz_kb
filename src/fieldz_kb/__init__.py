@@ -1,28 +1,27 @@
-"""fieldz_kb - A library to store dataclass-like objects into Neo4j knowledge bases.
+"""fieldz_kb - A library to store dataclass-like objects into knowledge bases.
 
 This library provides functionality for converting Python dataclass-like objects
-to Neo4j nodes and relationships, with support for:
+to graph database nodes and relationships, with support for:
 
 - Basic types (int, str, float, bool)
 - Collections (list, tuple, set, frozenset, dict)
 - Enums
 - Nested dataclasses
 - Forward references
+- Multiple backends (Neo4j via neomodel or pylpg, FalkorDB, FalkorDBLite)
 - BioCypher integration
 
 Example:
     >>> from dataclasses import dataclass
-    >>> import fieldz_kb.lpg.neo4j.neomodel
+    >>> from fieldz_kb.lpg.neo4j.pylpg import Session, Neo4jBackend
     >>>
     >>> @dataclass
     >>> class Person:
     >>>     name: str
     >>>     age: int
     >>>
-    >>> # Connect to Neo4j
-    >>> driver = fieldz_kb.lpg.neo4j.neomodel.connect("localhost", "neo4j", "password")
-    >>>
-    >>> # Save an object
-    >>> person = Person(name="Alice", age=30)
-    >>> fieldz_kb.lpg.neo4j.neomodel.save_from_object(person)
+    >>> backend = Neo4jBackend(hostname="localhost")
+    >>> with Session(backend) as session:
+    >>>     person = Person(name="Alice", age=30)
+    >>>     session.save_from_object(person)
 """

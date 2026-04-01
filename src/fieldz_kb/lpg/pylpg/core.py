@@ -11,8 +11,8 @@ to labeled property graph nodes and relationships via pylpg. It includes:
 - Plugin-based extensibility via PylpgTypePlugin and PylpgContext
 
 This module is backend-agnostic — it works with any pylpg backend (Neo4j,
-FalkorDB, FalkorDBLite). Database-specific connect() functions are provided
-by the thin wrapper modules (e.g., fieldz_kb.neo4j.pylpg.core).
+FalkorDB, FalkorDBLite). Use with fieldz_kb.lpg.pylpg.session.Session
+and a pylpg backend (e.g., pylpg.backend.neo4j.Neo4jBackend).
 """
 
 import types
