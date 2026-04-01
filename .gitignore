@@ -166,3 +166,4 @@ tests/credentials.py
 
 # opencode plans and artifacts
 .opencode/
+plans/
