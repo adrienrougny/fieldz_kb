@@ -135,12 +135,12 @@ class Session:
                     target_node, properties=properties
                 )
 
-    def make_object_from_node(self, node, node_element_id_to_object=None):
+    def make_object_from_node(self, node, node_id_to_object=None):
         """Convert a Neo4j node back to a Python object.
 
         Args:
             node: The Neo4j node to convert.
-            node_element_id_to_object: Optional cache mapping node element IDs to objects.
+            node_id_to_object: Optional cache mapping node element IDs to objects.
 
         Returns:
             The reconstructed Python object.
@@ -148,24 +148,24 @@ class Session:
         Raises:
             ValueError: If the node type cannot be mapped to a Python class.
         """
-        return self._context.make_object_from_node(node, node_element_id_to_object)
+        return self._context.make_object_from_node(node, node_id_to_object)
 
     def execute_query_as_objects(
-        self, query, params=None, node_element_id_to_object=None
+        self, query, params=None, node_id_to_object=None
     ):
         """Execute a Cypher query and convert results to Python objects.
 
         Args:
             query: The Cypher query string.
             params: Optional query parameters.
-            node_element_id_to_object: Optional cache mapping node element IDs to objects.
+            node_id_to_object: Optional cache mapping node element IDs to objects.
 
         Returns:
             A list of rows, where each row is a list of Python objects
             converted from neomodel node instances in the query results.
         """
-        if node_element_id_to_object is None:
-            node_element_id_to_object = {}
+        if node_id_to_object is None:
+            node_id_to_object = {}
         object_results = []
         results, meta = self.execute_query(
             query, params=params, resolve_objects=True
@@ -173,7 +173,7 @@ class Session:
         for row in results:
             row = [
                 self._context.make_object_from_node(
-                    _, node_element_id_to_object=node_element_id_to_object
+                    _, node_id_to_object
                 )
                 for _ in row
                 if isinstance(_, neomodel.StructuredNode)

@@ -293,7 +293,7 @@ class TestSaveAndRetrieve:
             neo4j_pylpg_session.save_from_object(person)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgSavePerson) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgSavePerson) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
@@ -318,7 +318,7 @@ class TestSaveAndRetrieve:
             neo4j_pylpg_session.save_from_object(person)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgBaseTypesPerson) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgBaseTypesPerson) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
@@ -335,7 +335,7 @@ class TestSaveAndRetrieve:
             neo4j_pylpg_session.save_from_object(data)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:List) RETURN n", resolve_nodes=True
+                "MATCH (n:List) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
@@ -353,7 +353,7 @@ class TestSaveAndRetrieve:
             neo4j_pylpg_session.save_from_object(status)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgSaveStatus) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgSaveStatus) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
@@ -371,7 +371,7 @@ class TestSaveAndRetrieve:
             neo4j_pylpg_session.save_from_objects(persons)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgMultiPerson) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgMultiPerson) RETURN n", resolve_objects=True
             )
             assert len(results) == 2
 
@@ -392,18 +392,18 @@ class TestSaveAndRetrieve:
             neo4j_pylpg_session.save_from_object(person)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgRelPerson) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgRelPerson) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgRelAddress) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgRelAddress) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
             results = neo4j_pylpg_session.execute_query(
                 "MATCH (p:PylpgRelPerson)-[:HAS_ADDRESS]->(a:PylpgRelAddress) RETURN p, a",
-                resolve_nodes=True,
+                resolve_objects=True,
             )
             assert len(results) == 1
 
@@ -432,7 +432,7 @@ class TestComplexScenarios:
             neo4j_pylpg_session.save_from_object(person)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgScenarioPerson) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgScenarioPerson) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
@@ -456,7 +456,7 @@ class TestComplexScenarios:
             neo4j_pylpg_session.save_from_object(items)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:List) RETURN n", resolve_nodes=True
+                "MATCH (n:List) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
@@ -481,7 +481,7 @@ class TestComplexScenarios:
             neo4j_pylpg_session.save_from_object(data)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:Dict) RETURN n", resolve_nodes=True
+                "MATCH (n:Dict) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 
@@ -510,7 +510,7 @@ class TestComplexScenarios:
             neo4j_pylpg_session.save_from_object(company)
 
             results = neo4j_pylpg_session.execute_query(
-                "MATCH (n:PylpgCompany) RETURN n", resolve_nodes=True
+                "MATCH (n:PylpgCompany) RETURN n", resolve_objects=True
             )
             assert len(results) == 1
 

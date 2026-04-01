@@ -43,19 +43,19 @@ class Session:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return self._pylpg_session.__exit__(exc_type, exc_val, exc_tb)
 
-    def execute_query(self, query, params=None, resolve_nodes=False):
+    def execute_query(self, query, params=None, resolve_objects=False):
         """Execute a Cypher query against the database.
 
         Args:
             query: The Cypher query string.
             params: Optional query parameters.
-            resolve_nodes: Whether to resolve results as pylpg node objects.
+            resolve_objects: Whether to resolve results as node objects.
 
         Returns:
             Query results as a list of dicts.
         """
         return self._pylpg_session.execute_query(
-            query, parameters=params, resolve_nodes=resolve_nodes
+            query, parameters=params, resolve_nodes=resolve_objects
         )
 
     def save_from_object(
@@ -145,7 +145,7 @@ class Session:
         if node_id_to_object is None:
             node_id_to_object = {}
         object_results = []
-        results = self.execute_query(query, params=params, resolve_nodes=True)
+        results = self.execute_query(query, params=params, resolve_objects=True)
         for row_dict in results:
             row = [
                 self._context.make_object_from_node(
