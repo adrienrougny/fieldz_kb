@@ -9,6 +9,7 @@ dependencies = [
     "inflect>=7.5.0",
     "frozendict>=2.4.7",
     "clorm>=1.6.1",
+    "pylpg>=0.1.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"

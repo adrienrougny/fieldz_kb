@@ -194,6 +194,7 @@ dependencies = [
     { name = "frozendict" },
     { name = "inflect" },
     { name = "neomodel" },
+    { name = "pylpg" },
 ]
 
 [package.dev-dependencies]
@@ -212,6 +213,7 @@ requires-dist = [
     { name = "frozendict", specifier = ">=2.4.7" },
     { name = "inflect", specifier = ">=7.5.0" },
     { name = "neomodel", specifier = ">=5.5.0" },
+    { name = "pylpg", specifier = ">=0.1.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -339,6 +341,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz", hash = "sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887", size = 4968631, upload-time = "2025-06-21T13:39:12.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
+]
+
+[[package]]
+name = "pylpg"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/af/4660a13830a2e03839ee52462418126427965d569ac05f48b7160bf7563f/pylpg-0.1.0.tar.gz", hash = "sha256:4a35d3bb3591672b332d189b0a58a9370e81c394cb6347a787984b04fc088cc7", size = 90147, upload-time = "2026-04-01T15:49:58.125Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/d2/2e0a8949faf046738ad0041988f0a95e6c72015f99a9dfe29a8cff99c805/pylpg-0.1.0-py3-none-any.whl", hash = "sha256:de662e3e83d2b1d63127349b10f25dc9a6d9e442f63ff5c79903e787e6596798", size = 12899, upload-time = "2026-04-01T15:49:56.524Z" },
 ]
 
 [[package]]
