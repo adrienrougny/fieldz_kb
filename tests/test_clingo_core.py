@@ -15,334 +15,355 @@ import fieldz_kb.clingo.core
 
 
 @pytest.fixture(autouse=True)
-def clear_clingo_caches():
-    """Reset caches before each test for isolation."""
-    fieldz_kb.clingo.core.reset_caches()
-    yield
-    fieldz_kb.clingo.core.reset_caches()
+def clingo_context():
+    """Provide a fresh clingo context for each test."""
+    context = fieldz_kb.clingo.core.make_context()
+    yield context
 
 
 class TestPredicateClassGeneration:
     """Tests for predicate class generation from types."""
 
-    def test_simple_class_generates_predicate(self):
+    def test_simple_class_generates_predicate(self, clingo_context):
         @dataclass
-        class Person:
+        class Gene:
             name: str
-            age: int
+            chromosome: int
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Person)
-        assert len(pcs) >= 1
-        assert issubclass(pcs[0], clorm.Predicate)
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, Gene
+        )
+        assert len(predicate_classes) >= 1
+        assert issubclass(predicate_classes[0], clorm.Predicate)
 
-    def test_predicate_class_has_id_field(self):
+    def test_predicate_class_has_id_field(self, clingo_context):
         @dataclass
-        class Item:
-            value: int
+        class Metabolite:
+            concentration: int
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Item)
-        main_pc = pcs[0]
-        # Can instantiate with an id
-        fact = main_pc("test_id")
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, Metabolite
+        )
+        main_predicate_class = predicate_classes[0]
+        fact = main_predicate_class("test_id")
         assert fact.id_ == "test_id"
 
-    def test_predicate_class_caching(self):
+    def test_predicate_class_caching(self, clingo_context):
         @dataclass
-        class CachedClass:
-            x: int
+        class Protein:
+            sequence: str
 
-        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(CachedClass)
-        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(CachedClass)
-        assert pcs1[0] is pcs2[0]
+        predicate_classes_1 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, Protein
+        )
+        predicate_classes_2 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, Protein
+        )
+        assert predicate_classes_1[0] is predicate_classes_2[0]
 
-    def test_cache_returns_consistent_shape(self):
+    def test_cache_returns_consistent_shape(self, clingo_context):
         @dataclass
-        class Consistent:
+        class Species:
             name: str
-            age: int
+            taxonomy_id: int
 
-        pcs1 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Consistent)
-        pcs2 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Consistent)
-        # Cache hit should return the same list shape as cache miss
-        assert len(pcs1) == len(pcs2)
+        predicate_classes_1 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, Species
+        )
+        predicate_classes_2 = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, Species
+        )
+        assert len(predicate_classes_1) == len(predicate_classes_2)
 
-    def test_field_predicate_classes_generated(self):
+    def test_field_predicate_classes_generated(self, clingo_context):
         @dataclass
-        class WithFields:
+        class Enzyme:
             name: str
-            age: int
+            ec_number: str
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(WithFields)
-        # Main predicate + one per field
-        assert len(pcs) >= 3
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, Enzyme
+        )
+        assert len(predicate_classes) >= 3
 
-    def test_nested_fieldz_class_field(self):
+    def test_nested_fieldz_class_field(self, clingo_context):
         @dataclass
-        class Inner:
-            value: int
+        class Organism:
+            name: str
 
         @dataclass
-        class Outer:
-            inner: Inner
+        class GeneWithOrganism:
+            organism: Organism
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(Outer)
-        assert len(pcs) >= 2
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, GeneWithOrganism
+        )
+        assert len(predicate_classes) >= 2
 
-    def test_optional_field_type(self):
+    def test_optional_field_type(self, clingo_context):
         @dataclass
-        class OptionalField:
+        class ProteinOptional:
             name: Optional[str] = None
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(OptionalField)
-        assert len(pcs) >= 1
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, ProteinOptional
+        )
+        assert len(predicate_classes) >= 1
 
-    def test_list_field_type(self):
+    def test_list_field_type(self, clingo_context):
         @dataclass
-        class WithList:
-            items: List[int]
+        class PathwayWithReactions:
+            reactions: List[str]
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(WithList)
-        assert len(pcs) >= 2
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, PathwayWithReactions
+        )
+        assert len(predicate_classes) >= 2
 
-    def test_unsupported_type_raises_error(self):
+    def test_unsupported_type_raises_error(self, clingo_context):
         with pytest.raises(ValueError, match="not supported"):
-            fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(int)
+            fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+                clingo_context, int
+            )
 
 
 class TestPredicateNaming:
     """Tests for predicate naming conventions."""
 
-    def test_type_predicate_name_lowercase_first(self):
+    def test_type_predicate_name_lowercase_first(self, clingo_context):
         @dataclass
-        class MyClass:
-            x: int
+        class BiologicalProcess:
+            name: str
 
-        pcs = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(MyClass)
-        assert pcs[0].__name__ == "myClass"
-
-    def test_field_predicate_has_prefix(self):
-        @dataclass
-        class Named:
-            my_field: int
-
-        fields_ = fieldz.fields(Named)
-        pcs = fieldz_kb.clingo.core._default_context.get_or_make_predicate_classes_from_field(
-            Named, fields_[0]
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            clingo_context, BiologicalProcess
         )
-        # Field predicates should have "has" prefix in their predicate name
-        assert len(pcs) >= 1
+        assert predicate_classes[0].__name__ == "biologicalProcess"
+
+    def test_field_predicate_has_prefix(self, clingo_context):
+        @dataclass
+        class GeneAnnotation:
+            gene_symbol: int
+
+        fields_ = fieldz.fields(GeneAnnotation)
+        predicate_classes = fieldz_kb.clingo.core.get_or_make_predicate_classes_from_field(
+            clingo_context, GeneAnnotation, fields_[0]
+        )
+        assert len(predicate_classes) >= 1
 
 
 class TestFactGeneration:
     """Tests for converting objects to facts."""
 
-    def test_simple_object_facts(self):
+    def test_simple_object_facts(self, clingo_context):
         @dataclass
-        class Simple:
+        class Gene:
             name: str
-            age: int
+            chromosome: int
 
-        obj = Simple(name="Alice", age=30)
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        obj = Gene(name="TP53", chromosome=17)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
         assert len(facts) > 0
 
-    def test_entity_fact_present(self):
+    def test_entity_fact_present(self, clingo_context):
         @dataclass
-        class Entity:
-            x: int
+        class Metabolite:
+            concentration: int
 
-        obj = Entity(x=42)
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
-        # There should be an entity fact with an id_
-        entity_facts = [f for f in facts if type(f).__name__ == "entity"]
+        obj = Metabolite(concentration=42)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
+        entity_facts = [f for f in facts if type(f).__name__ == "metabolite"]
         assert len(entity_facts) == 1
         assert entity_facts[0].id_.startswith("id_")
 
-    def test_fact_values_are_correct(self):
+    def test_fact_values_are_correct(self, clingo_context):
         @dataclass
-        class Valued:
-            x: int
+        class Measurement:
+            value: int
 
-        obj = Valued(x=42)
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        obj = Measurement(value=42)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
         value_facts = [f for f in facts if hasattr(f, "value")]
         assert any(f.value == 42 for f in value_facts)
 
-    def test_string_field_value(self):
+    def test_string_field_value(self, clingo_context):
         @dataclass
-        class WithString:
+        class Species:
             name: str
 
-        obj = WithString(name="Alice")
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        obj = Species(name="Homo sapiens")
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
         value_facts = [f for f in facts if hasattr(f, "value")]
-        assert any(f.value == "Alice" for f in value_facts)
+        assert any(f.value == "Homo sapiens" for f in value_facts)
 
-    def test_none_value_skipped(self):
+    def test_none_value_skipped(self, clingo_context):
         @dataclass
-        class OptObj:
+        class ProteinOptional:
             name: str
-            nickname: Optional[str] = None
+            alias: Optional[str] = None
 
-        obj = OptObj(name="Alice", nickname=None)
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
-        # Should succeed without error
+        obj = ProteinOptional(name="p53", alias=None)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
         assert len(facts) > 0
-        # Should have facts for name but not for nickname
         value_facts = [f for f in facts if hasattr(f, "value")]
         assert len(value_facts) == 1
-        assert value_facts[0].value == "Alice"
+        assert value_facts[0].value == "p53"
 
-    def test_nested_object_facts(self):
+    def test_nested_object_facts(self, clingo_context):
         @dataclass
-        class Address:
-            city: str
+        class CellLocation:
+            compartment: str
 
         @dataclass
-        class Person:
+        class ProteinLocated:
             name: str
-            address: Address
+            location: CellLocation
 
-        addr = Address(city="NYC")
-        person = Person(name="Alice", address=addr)
-        facts = fieldz_kb.clingo.core.make_facts_from_object(person)
+        location = CellLocation(compartment="cytoplasm")
+        protein = ProteinLocated(name="insulin", location=location)
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, protein)
 
-        # Should have entity facts for both Person and Address
-        entity_type_names = {type(f).__name__ for f in facts if not hasattr(f, "value")}
-        assert "person" in entity_type_names
-        assert "address" in entity_type_names
+        entity_type_names = {
+            type(f).__name__ for f in facts if not hasattr(f, "value")
+        }
+        assert "proteinLocated" in entity_type_names
+        assert "cellLocation" in entity_type_names
 
-    def test_nested_object_linked_by_id(self):
+    def test_nested_object_linked_by_id(self, clingo_context):
         @dataclass
-        class Inner:
-            value: int
+        class Substrate:
+            name: str
 
         @dataclass
-        class Outer:
-            inner: Inner
+        class ReactionWithSubstrate:
+            substrate: Substrate
 
-        obj = Outer(inner=Inner(value=42))
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        obj = ReactionWithSubstrate(substrate=Substrate(name="glucose"))
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
 
-        # The outer entity's hasInner fact should reference the inner entity's id
-        inner_entity = [f for f in facts if type(f).__name__ == "inner"]
-        assert len(inner_entity) == 1
-        inner_id = inner_entity[0].id_
+        substrate_entity = [f for f in facts if type(f).__name__ == "substrate"]
+        assert len(substrate_entity) == 1
+        substrate_id = substrate_entity[0].id_
 
-        # Find the hasInner field fact that links outer to inner
         link_facts = [
             f
             for f in facts
-            if hasattr(f, "value") and isinstance(f.value, str) and f.value == inner_id
+            if hasattr(f, "value")
+            and isinstance(f.value, str)
+            and f.value == substrate_id
         ]
         assert len(link_facts) == 1
 
-    def test_list_of_base_types(self):
+    def test_list_of_base_types(self, clingo_context):
         @dataclass
-        class WithTags:
-            tags: List[str]
+        class GeneWithSynonyms:
+            synonyms: List[str]
 
-        obj = WithTags(tags=["a", "b", "c"])
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        obj = GeneWithSynonyms(synonyms=["BRCA1", "FANCS", "RNF53"])
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
         assert len(facts) > 0
-        # Should have 3 value facts for tags
         value_facts = [f for f in facts if hasattr(f, "value")]
         assert len(value_facts) == 3
-        tag_values = {f.value for f in value_facts}
-        assert tag_values == {"a", "b", "c"}
+        values = {f.value for f in value_facts}
+        assert values == {"BRCA1", "FANCS", "RNF53"}
 
-    def test_list_of_fieldz_objects(self):
+    def test_list_of_fieldz_objects(self, clingo_context):
         @dataclass
-        class Item:
-            value: int
+        class Metabolite:
+            name: str
 
         @dataclass
-        class Container:
-            items: List[Item]
+        class PathwayWithMetabolites:
+            metabolites: List[Metabolite]
 
-        obj = Container(items=[Item(value=1), Item(value=2)])
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        obj = PathwayWithMetabolites(
+            metabolites=[Metabolite(name="glucose"), Metabolite(name="pyruvate")]
+        )
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
         assert len(facts) > 0
 
-        # Should have entity facts for the container and both items
-        item_entities = [f for f in facts if type(f).__name__ == "item"]
-        assert len(item_entities) == 2
+        metabolite_entities = [
+            f for f in facts if type(f).__name__ == "metabolite"
+        ]
+        assert len(metabolite_entities) == 2
 
-    def test_deterministic_ids(self):
+    def test_deterministic_ids(self, clingo_context):
         @dataclass
-        class Det:
-            x: int
+        class Enzyme:
+            name: str
 
-        obj = Det(x=1)
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
-        entity_fact = [f for f in facts if type(f).__name__ == "det"][0]
-        # ID should follow counter pattern, not memory addresses
+        obj = Enzyme(name="hexokinase")
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
+        entity_fact = [f for f in facts if type(f).__name__ == "enzyme"][0]
         assert entity_fact.id_ == "id_0"
 
-    def test_deterministic_ids_sequential(self):
+    def test_deterministic_ids_sequential(self, clingo_context):
         @dataclass
-        class Seq:
-            x: int
+        class Reaction:
+            name: str
 
-        obj1 = Seq(x=1)
-        obj2 = Seq(x=2)
-        facts1 = fieldz_kb.clingo.core.make_facts_from_object(obj1)
-        facts2 = fieldz_kb.clingo.core.make_facts_from_object(obj2)
+        obj1 = Reaction(name="glycolysis_step_1")
+        obj2 = Reaction(name="glycolysis_step_2")
+        facts1 = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj1)
+        facts2 = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj2)
 
-        entity1 = [f for f in facts1 if type(f).__name__ == "seq"][0]
-        entity2 = [f for f in facts2 if type(f).__name__ == "seq"][0]
+        entity1 = [f for f in facts1 if type(f).__name__ == "reaction"][0]
+        entity2 = [f for f in facts2 if type(f).__name__ == "reaction"][0]
         assert entity1.id_ == "id_0"
         assert entity2.id_ == "id_1"
 
-    def test_empty_list_field(self):
+    def test_empty_list_field(self, clingo_context):
         @dataclass
-        class EmptyList:
-            items: List[int] = field(default_factory=list)
+        class EmptyPathway:
+            reactions: List[str] = field(default_factory=list)
 
-        obj = EmptyList(items=[])
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
-        # Should have just the entity fact, no value facts
-        entity_facts = [f for f in facts if type(f).__name__ == "emptyList"]
+        obj = EmptyPathway(reactions=[])
+        facts = fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
+        entity_facts = [f for f in facts if type(f).__name__ == "emptyPathway"]
         assert len(entity_facts) == 1
         value_facts = [f for f in facts if hasattr(f, "value")]
         assert len(value_facts) == 0
 
-    def test_unsupported_value_type_raises_error(self):
+    def test_unsupported_value_type_raises_error(self, clingo_context):
         @dataclass
         class BadType:
             data: dict
 
         obj = BadType(data={"a": 1})
         with pytest.raises(ValueError, match="not supported"):
-            fieldz_kb.clingo.core.make_facts_from_object(obj)
+            fieldz_kb.clingo.core.make_facts_from_object(clingo_context, obj)
 
 
 class TestResetCaches:
-    """Tests for the reset_caches utility."""
+    """Tests for the context reset functionality."""
 
     def test_reset_clears_type_cache(self):
         @dataclass
         class ResetTest:
-            x: int
+            name: str
 
-        fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(ResetTest)
-        assert ResetTest in fieldz_kb.clingo.core._default_context.type_to_predicate_class
+        context = fieldz_kb.clingo.core.make_context()
+        fieldz_kb.clingo.core.get_or_make_predicate_classes_from_type(
+            context, ResetTest
+        )
+        assert ResetTest in context.type_to_predicate_class
 
-        fieldz_kb.clingo.core.reset_caches()
-        assert ResetTest not in fieldz_kb.clingo.core._default_context.type_to_predicate_class
+        context.reset()
+        assert ResetTest not in context.type_to_predicate_class
 
     def test_reset_resets_id_counter(self):
         @dataclass
         class CounterTest:
-            x: int
+            name: str
 
-        obj = CounterTest(x=1)
-        facts = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        context = fieldz_kb.clingo.core.make_context()
+        obj = CounterTest(name="test")
+        facts = fieldz_kb.clingo.core.make_facts_from_object(context, obj)
         entity = [f for f in facts if type(f).__name__ == "counterTest"][0]
         first_id = entity.id_
 
-        fieldz_kb.clingo.core.reset_caches()
+        context.reset()
 
-        facts2 = fieldz_kb.clingo.core.make_facts_from_object(obj)
+        facts2 = fieldz_kb.clingo.core.make_facts_from_object(context, obj)
         entity2 = [f for f in facts2 if type(f).__name__ == "counterTest"][0]
-        assert entity2.id_ == first_id  # Same id after reset
+        assert entity2.id_ == first_id
