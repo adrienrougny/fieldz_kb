@@ -8,20 +8,21 @@ to graph database nodes and relationships, with support for:
 - Enums
 - Nested dataclasses
 - Forward references
-- Multiple backends (Neo4j via neomodel or pylpg, FalkorDB, FalkorDBLite)
+- Multiple backends (Neo4j, FalkorDB, FalkorDBLite)
 - BioCypher integration
 
 Example:
-    >>> from dataclasses import dataclass
-    >>> from fieldz_kb.lpg.neo4j.pylpg import Session, Neo4jBackend
+    >>> import dataclasses
+    >>> import fieldz_kb.lpg.session
+    >>> import fieldz_kb.lpg.backends.neo4j
     >>>
-    >>> @dataclass
-    >>> class Person:
+    >>> @dataclasses.dataclass
+    >>> class Gene:
     >>>     name: str
-    >>>     age: int
+    >>>     chromosome: int
     >>>
-    >>> backend = Neo4jBackend(hostname="localhost")
-    >>> with Session(backend) as session:
-    >>>     person = Person(name="Alice", age=30)
-    >>>     session.save_from_object(person)
+    >>> backend = fieldz_kb.lpg.backends.neo4j.Neo4jBackend(hostname="localhost")
+    >>> with fieldz_kb.lpg.session.Session(backend) as session:
+    >>>     gene = Gene(name="TP53", chromosome=17)
+    >>>     session.save_from_object(gene)
 """
