@@ -124,6 +124,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv-sandbox
 env/
 venv/
 ENV/
@@ -161,8 +162,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Credentials file for tests (contains sensitive Neo4j credentials)
-tests/credentials.py
 
 # opencode plans and artifacts
 .opencode/
