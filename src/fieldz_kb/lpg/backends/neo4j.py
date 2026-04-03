@@ -1,6 +1,4 @@
-"""LPG (labeled property graph) backend for fieldz_kb.
-
-Supports Neo4j, FalkorDB, and FalkorDBLite via pylpg.
+"""Neo4j backend for fieldz_kb.
 
 Example:
     >>> import fieldz_kb.lpg.session
@@ -9,3 +7,7 @@ Example:
     >>> with fieldz_kb.lpg.session.Session(backend) as session:
     ...     session.save_from_object(person)
 """
+
+import pylpg.backend.neo4j
+
+Neo4jBackend = pylpg.backend.neo4j.Neo4jBackend
