@@ -32,6 +32,10 @@ class Boolean(BaseNode):
     value: bool
 
 
+class Null(BaseNode):
+    """Node class for storing None values."""
+
+
 class HasItem(pylpg.relationship.Relationship):
     """Relationship for HAS_ITEM connections."""
 

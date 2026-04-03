@@ -217,6 +217,26 @@ class TestMakeNodesFromObject:
         frozen_node = nodes[0]
         assert isinstance(frozen_node, fieldz_kb.lpg.graph.FrozenDict)
 
+    def test_make_nodes_from_list_with_none(self):
+        data = [1, None, 3]
+        nodes, relationships = fieldz_kb.lpg.core.make_nodes_from_object(
+            fieldz_kb.lpg.core.get_default_context(), data
+        )
+
+        assert len(nodes) == 4
+        assert isinstance(nodes[0], fieldz_kb.lpg.graph.List)
+        null_nodes = [n for n in nodes if isinstance(n, fieldz_kb.lpg.graph.Null)]
+        assert len(null_nodes) == 1
+
+    def test_make_nodes_from_dict_with_none_value(self):
+        data = {"present": "yes", "absent": None}
+        nodes, relationships = fieldz_kb.lpg.core.make_nodes_from_object(
+            fieldz_kb.lpg.core.get_default_context(), data
+        )
+
+        null_nodes = [n for n in nodes if isinstance(n, fieldz_kb.lpg.graph.Null)]
+        assert len(null_nodes) == 1
+
     def test_make_nodes_from_enum(self):
         class Compartment(enum.Enum):
             CYTOPLASM = "cytoplasm"

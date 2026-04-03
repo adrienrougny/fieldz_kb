@@ -15,6 +15,57 @@ import fieldz_kb.lpg.graph
 import fieldz_kb.lpg.core
 
 
+class NoneTypePlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
+    """Handles NoneType (None values)."""
+
+    @classmethod
+    def can_handle_type(cls, type_: type) -> bool:
+        """Return True if the type is NoneType."""
+        return type_ is types.NoneType
+
+    @classmethod
+    def can_handle_node_class(
+        cls, node_class: type, ctx: fieldz_kb.lpg.core.PylpgContext
+    ) -> bool:
+        """Return True if the node class is Null."""
+        return node_class is fieldz_kb.lpg.graph.Null
+
+    @classmethod
+    def make_node_class_from_type(
+        cls,
+        type_: type,
+        ctx: fieldz_kb.lpg.core.PylpgContext,
+        make_node_classes_recursively: bool = True,
+        guard: set[type] | None = None,
+    ) -> type[fieldz_kb.lpg.graph.BaseNode] | None:
+        """Return None; NoneType uses a pre-built node class."""
+        return None
+
+    @classmethod
+    def make_nodes_from_object(
+        cls,
+        obj: object,
+        ctx: fieldz_kb.lpg.core.PylpgContext,
+        integration_mode: typing.Literal["hash", "id"],
+        exclude_from_integration: tuple[type, ...],
+        object_to_node: dict,
+    ) -> tuple[
+        list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
+    ]:
+        """Convert None to a single Null node."""
+        return [fieldz_kb.lpg.graph.Null()], []
+
+    @classmethod
+    def make_object_from_node(
+        cls,
+        node: fieldz_kb.lpg.graph.BaseNode,
+        ctx: fieldz_kb.lpg.core.PylpgContext,
+        node_id_to_object: dict,
+    ) -> object:
+        """Return None from a Null node."""
+        return None
+
+
 class BaseTypePlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
     """Handles base types: int, str, float, bool."""
 

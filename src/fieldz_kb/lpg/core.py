@@ -303,7 +303,10 @@ def make_context() -> PylpgContext:
 
     context = PylpgContext()
 
+    import types
+
     context.type_to_node_class = {
+        types.NoneType: fieldz_kb.lpg.graph.Null,
         int: fieldz_kb.lpg.graph.Integer,
         str: fieldz_kb.lpg.graph.String,
         float: fieldz_kb.lpg.graph.Float,
@@ -314,6 +317,7 @@ def make_context() -> PylpgContext:
         frozenset: fieldz_kb.lpg.graph.FrozenSet,
     }
     context.node_class_to_type = {
+        fieldz_kb.lpg.graph.Null: types.NoneType,
         fieldz_kb.lpg.graph.Integer: int,
         fieldz_kb.lpg.graph.String: str,
         fieldz_kb.lpg.graph.Float: float,
@@ -326,6 +330,7 @@ def make_context() -> PylpgContext:
         fieldz_kb.lpg.graph.FrozenDict: frozendict.frozendict,
     }
 
+    context.register(fieldz_kb.lpg.plugins.NoneTypePlugin)
     context.register(fieldz_kb.lpg.plugins.BaseTypePlugin)
     context.register(fieldz_kb.lpg.plugins.SequencePlugin)
     context.register(fieldz_kb.lpg.plugins.BagPlugin)
