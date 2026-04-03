@@ -463,12 +463,18 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         }
         kinds = {candidate.kind for candidate in candidates}
         target_type_sets = {candidate.target_types for candidate in candidates}
-        if kinds == {"primitive"} and len(target_type_sets) == 1:
-            target_types = next(iter(target_type_sets))
-            target_type_origin = next(iter(target_types))[0]
+        if kinds == {"primitive"}:
+            primitive_types = set()
+            for candidate in candidates:
+                for target_type in candidate.target_types:
+                    primitive_types.add(target_type[0])
+            if len(primitive_types) == 1:
+                property_type = next(iter(primitive_types))
+            else:
+                property_type = typing.Union[tuple(primitive_types)]
             return {
                 "kind": "primitive",
-                "type": target_type_origin,
+                "type": property_type,
                 "optional": optional,
             }
         if kinds == {"array"} and len(target_type_sets) == 1:
