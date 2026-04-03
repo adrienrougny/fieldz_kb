@@ -6,10 +6,6 @@ authors = [{ name = "Adrien Rougny", email = "adrienrougny@gmail.com" }]
 dependencies = [
     "fieldz>=0.1.2",
     "inflect>=7.5.0",
-    "frozendict>=2.4.7",
-    "clorm>=1.6.1",
-    "pylpg>=0.2.0",
-    "pyyaml>=6.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -24,6 +20,16 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 
+[project.optional-dependencies]
+clingo = ["clorm>=1.6.1"]
+neo4j = ["pylpg[neo4j]>=0.2.0", "frozendict>=2.4.7"]
+falkordb = ["pylpg[falkordb]>=0.2.0", "frozendict>=2.4.7"]
+falkordblite = ["pylpg[falkordblite]>=0.2.0", "frozendict>=2.4.7"]
+biocypher = ["pylpg>=0.2.0", "frozendict>=2.4.7", "pyyaml>=6.0"]
+all = [
+    "fieldz_kb[clingo,neo4j,falkordb,falkordblite,biocypher]",
+]
+
 [project.urls]
 Homepage = "https://github.com/adrienrougny/fieldz_kb"
 Issues = "https://github.com/adrienrougny/fieldz_kb/issues"
@@ -34,8 +40,10 @@ dev = ["ruff>=0.12.8", { include-group = "test" }]
 test = [
     "pytest>=9.0.2",
     "testcontainers[neo4j]>=4.0",
-    "neo4j>=5.0",
-    "falkordb>=1.0",
+    "clorm>=1.6.1",
+    "pylpg[neo4j,falkordb]>=0.2.0",
+    "frozendict>=2.4.7",
+    "pyyaml>=6.0",
     "falkordblite>=0.1; python_version >= '3.12'",
 ]
 
