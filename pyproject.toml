@@ -36,7 +36,7 @@ Issues = "https://github.com/adrienrougny/fieldz_kb/issues"
 
 
 [dependency-groups]
-dev = ["ruff>=0.12.8", { include-group = "test" }]
+dev = ["ruff>=0.12.8", "pre-commit>=4.0", { include-group = "test" }]
 test = [
     "pytest>=9.0.2",
     "testcontainers[neo4j]>=4.0",
