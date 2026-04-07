@@ -3,7 +3,6 @@
 import dataclasses
 import typing
 
-import pytest
 
 import fieldz_kb.biocypher.adapter
 import fieldz_kb.biocypher.utils

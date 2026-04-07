@@ -9,7 +9,6 @@ from typing import List, Optional
 
 import pytest
 import clorm
-import fieldz
 
 import fieldz_kb.clingo.session
 
