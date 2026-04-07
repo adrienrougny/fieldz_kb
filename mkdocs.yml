@@ -1,0 +1,69 @@
+site_name: fieldz_kb
+site_url: https://adrienrougny.github.io/fieldz_kb/
+nav:
+  - Home: index.md
+  - Getting started: getting_started.md
+  - API reference:
+    - Type info: api_reference/typeinfo.md
+    - LPG:
+      - Graph types: api_reference/lpg/graph.md
+      - Core: api_reference/lpg/core.md
+      - Plugins: api_reference/lpg/plugins.md
+      - Session: api_reference/lpg/session.md
+      - Utils: api_reference/lpg/utils.md
+      - Backends:
+        - Neo4j: api_reference/lpg/backends/neo4j.md
+        - FalkorDB: api_reference/lpg/backends/falkordb.md
+        - FalkorDBLite: api_reference/lpg/backends/falkordblite.md
+    - Clingo:
+      - Core: api_reference/clingo/core.md
+      - Plugins: api_reference/clingo/plugins.md
+      - Session: api_reference/clingo/session.md
+      - Utils: api_reference/clingo/utils.md
+    - BioCypher:
+      - Adapter: api_reference/biocypher/adapter.md
+      - Utils: api_reference/biocypher/utils.md
+  - About: about.md
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            inherited_members: true
+            group_by_category: false
+            show_category_heading: false
+            show_root_heading: true
+            parameter_headings: false
+            show_signature_annotations: true
+            separate_signature: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_if_no_docstring: false
+            signature_crossrefs: true
+            merge_init_into_class: true
+            summary: true
+            extensions:
+              - griffe_fieldz: {include_inherited: true}
+              - griffe_inherited_docstrings
+markdown_extensions:
+  - toc:
+      toc_depth: 3
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
