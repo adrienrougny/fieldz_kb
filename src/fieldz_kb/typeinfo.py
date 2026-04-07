@@ -6,6 +6,7 @@ support for forward references, unions, optionals, and generic types.
 
 import typing
 import types
+import collections.abc
 
 import fieldz
 
@@ -77,7 +78,7 @@ def get_types_from_type_hint(type_hint, module=None):
             type_hint = type_hint_args[0] | None
             return get_types_from_type_hint(type_hint, module=module)
         elif isinstance(type_hint_origin, type) and issubclass(  # a generic
-            type_hint_origin, (list, tuple, set, frozenset, dict)
+            type_hint_origin, collections.abc.Collection
         ):
             return tuple(
                 [
