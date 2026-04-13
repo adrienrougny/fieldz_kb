@@ -53,9 +53,11 @@ def _evaluate_forward_ref(forward_ref: typing.ForwardRef) -> type:
     """
     if sys.version_info >= (3, 14):
         return forward_ref.evaluate()
-    return typing._eval_type(
-        forward_ref, globals(), globals(), type_params=()
-    )
+    if sys.version_info >= (3, 13):
+        return typing._eval_type(
+            forward_ref, globals(), globals(), type_params=()
+        )
+    return typing._eval_type(forward_ref, globals(), globals())
 
 
 def get_types_from_type_hint(type_hint, module=None):
