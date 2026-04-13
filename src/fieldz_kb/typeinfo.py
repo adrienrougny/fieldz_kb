@@ -4,6 +4,7 @@ This module provides utilities for introspecting type hints, including
 support for forward references, unions, optionals, and generic types.
 """
 
+import sys
 import typing
 import types
 import collections.abc
@@ -36,6 +37,25 @@ def is_missing_type(type_):
         True if the type is the missing sentinel, False otherwise
     """
     return type_ is fieldz._types._MISSING_TYPE.MISSING
+
+
+def _evaluate_forward_ref(forward_ref: typing.ForwardRef) -> type:
+    """Evaluate a ForwardRef to its resolved type.
+
+    Uses ForwardRef.evaluate() on Python 3.14+, falls back to
+    typing._eval_type() on earlier versions.
+
+    Args:
+        forward_ref: The ForwardRef to evaluate.
+
+    Returns:
+        The resolved type.
+    """
+    if sys.version_info >= (3, 14):
+        return forward_ref.evaluate()
+    return typing._eval_type(
+        forward_ref, globals(), globals(), type_params=()
+    )
 
 
 def get_types_from_type_hint(type_hint, module=None):
@@ -112,9 +132,8 @@ def get_types_from_type_hint(type_hint, module=None):
     elif isinstance(type_hint, typing.ForwardRef):  # forwardref
         if module is not None:
             type_hint = typing.ForwardRef(type_hint.__forward_arg__, module=module)
-        return get_types_from_type_hint(
-            typing._eval_type(type_hint, globals(), globals()), module=module
-        )
+        resolved = _evaluate_forward_ref(type_hint)
+        return get_types_from_type_hint(resolved, module=module)
     elif isinstance(type_hint, str):  # forwardref
         type_hint = typing.ForwardRef(type_hint, module=module)
         return get_types_from_type_hint(type_hint, module=module)
