@@ -6,7 +6,6 @@ import enum
 import abc
 
 import fieldz
-import frozendict
 import pylpg.relationship
 
 import fieldz_kb.typeinfo
@@ -309,21 +308,19 @@ class BagPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
 
 
 class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
-    """Handles mapping types: dict, frozendict."""
+    """Handles mapping types: dict."""
 
-    _handled_types: set[type] = {dict, frozendict.frozendict}
+    _handled_types: set[type] = {dict}
     _handled_node_classes: set[type] = {
         fieldz_kb.lpg.graph.Dict,
-        fieldz_kb.lpg.graph.FrozenDict,
     }
     _type_to_node_class: dict[type, type[fieldz_kb.lpg.graph.BaseNode]] = {
         dict: fieldz_kb.lpg.graph.Dict,
-        frozendict.frozendict: fieldz_kb.lpg.graph.FrozenDict,
     }
 
     @classmethod
     def can_handle_type(cls, type_: type) -> bool:
-        """Return True if the type is a mapping type (dict, frozendict)."""
+        """Return True if the type is a mapping type (dict)."""
         return type_ in cls._handled_types
 
     @classmethod
@@ -399,7 +396,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
-        """Convert a dict/frozendict to a Mapping node with Item sub-nodes."""
+        """Convert a dict to a Mapping node with Item sub-nodes."""
         node_class = cls._type_to_node_class[type(obj)]
         node = node_class()
         nodes = [node]
@@ -428,7 +425,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         node_id_to_object: dict,
     ) -> object:
-        """Reconstruct a dict/frozendict from a Mapping node."""
+        """Reconstruct a dict from a Mapping node."""
         node_class = type(node)
         if node_class is fieldz_kb.lpg.graph.Dict:
             dict_object = {}

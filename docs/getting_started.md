@@ -25,7 +25,7 @@ fieldz_kb handles:
 
 - **Primitives**: `int`, `str`, `float`, `bool`
 - **None**: stored as `Null` nodes
-- **Collections**: `list`, `tuple`, `set`, `frozenset`, `dict`, `frozendict`
+- **Collections**: `list`, `tuple`, `set`, `frozenset`, `dict`
 - **Enums**: stored with name and value
 - **Nested dataclasses**: stored as separate nodes with relationships
 - **Optional fields**: `str | None`, `Optional[int]`, etc.

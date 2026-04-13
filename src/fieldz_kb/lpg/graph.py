@@ -63,17 +63,13 @@ class Item(BaseNode):
 
 
 class Mapping(BaseNode):
-    """Base node class for mapping types (dict, frozendict)."""
+    """Base node class for mapping types."""
 
     items = pylpg.relationship.RelationshipTo(HasItem)
 
 
 class Dict(Mapping):
     """Node class for storing dictionary values."""
-
-
-class FrozenDict(Mapping):
-    """Node class for storing frozendict values."""
 
 
 class Bag(BaseNode):

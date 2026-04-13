@@ -297,13 +297,11 @@ def make_object_from_node(
 
 def make_context() -> PylpgContext:
     """Create a fresh PylpgContext with all built-in plugins registered."""
-    import frozendict
+    import types
 
     import fieldz_kb.lpg.plugins
 
     context = PylpgContext()
-
-    import types
 
     context.type_to_node_class = {
         types.NoneType: fieldz_kb.lpg.graph.Null,
@@ -327,7 +325,6 @@ def make_context() -> PylpgContext:
         fieldz_kb.lpg.graph.Set: set,
         fieldz_kb.lpg.graph.FrozenSet: frozenset,
         fieldz_kb.lpg.graph.Dict: dict,
-        fieldz_kb.lpg.graph.FrozenDict: frozendict.frozendict,
     }
 
     context.register(fieldz_kb.lpg.plugins.NoneTypePlugin)

@@ -5,8 +5,6 @@ import dataclasses
 import typing
 
 import pytest
-import frozendict
-
 import fieldz_kb.lpg.core
 import fieldz_kb.lpg.graph
 
@@ -207,15 +205,6 @@ class TestMakeNodesFromObject:
         dict_node = nodes[0]
         assert isinstance(dict_node, fieldz_kb.lpg.graph.Dict)
         assert len(relationships) > 0
-
-    def test_make_nodes_from_frozendict(self):
-        data = frozendict.frozendict({"glucose": 1, "fructose": 2})
-        nodes, relationships = fieldz_kb.lpg.core.make_nodes_from_object(
-            fieldz_kb.lpg.core.get_default_context(), data
-        )
-
-        frozen_node = nodes[0]
-        assert isinstance(frozen_node, fieldz_kb.lpg.graph.FrozenDict)
 
     def test_make_nodes_from_list_with_none(self):
         data = [1, None, 3]
