@@ -173,4 +173,4 @@ class Session:
 
     def delete_all(self) -> None:
         """Delete all nodes and relationships from the database."""
-        self.execute_query("MATCH (n) DETACH DELETE n")
+        self._pylpg_session.delete_all()
