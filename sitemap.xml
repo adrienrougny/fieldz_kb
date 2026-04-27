@@ -2,78 +2,78 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/CHANGELOG/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/about/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/getting_started/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/typeinfo/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/biocypher/adapter/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/biocypher/utils/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/clingo/core/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/clingo/plugins/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/clingo/session/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/clingo/utils/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/core/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/graph/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/plugins/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/session/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/utils/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/backends/falkordb/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/backends/falkordblite/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
     <url>
          <loc>https://adrienrougny.github.io/fieldz_kb/api_reference/lpg/backends/neo4j/</loc>
-         <lastmod>2026-04-13</lastmod>
+         <lastmod>2026-04-27</lastmod>
     </url>
 </urlset>
