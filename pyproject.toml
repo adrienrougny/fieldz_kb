@@ -22,10 +22,10 @@ classifiers = [
 
 [project.optional-dependencies]
 clingo = ["clorm>=1.6.1"]
-neo4j = ["pylpg[neo4j]>=0.2.1"]
-falkordb = ["pylpg[falkordb]>=0.2.1"]
-falkordblite = ["pylpg[falkordblite]>=0.2.1"]
-biocypher = ["pylpg>=0.2.1", "pyyaml>=6.0"]
+neo4j = ["pylpg[neo4j]>=0.2.2"]
+falkordb = ["pylpg[falkordb]>=0.2.2"]
+falkordblite = ["pylpg[falkordblite]>=0.2.2"]
+biocypher = ["pylpg>=0.2.2", "pyyaml>=6.0"]
 all = [
     "fieldz_kb[clingo,neo4j,falkordb,falkordblite,biocypher]",
 ]
@@ -41,7 +41,7 @@ test = [
     "pytest>=9.0.2",
     "testcontainers[neo4j]>=4.0",
     "clorm>=1.6.1",
-    "pylpg[neo4j,falkordb]>=0.2.1",
+    "pylpg[neo4j,falkordb]>=0.2.2",
     "pyyaml>=6.0",
     "falkordblite>=0.1; python_version >= '3.12'",
 ]
