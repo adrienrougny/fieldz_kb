@@ -620,10 +620,12 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
             if field_info["kind"] == "primitive":
                 node_class_annotations[field.name] = field_info["type"] | None
                 node_class_dict[field.name] = None
+                node_class_dict[f"_field_info_{field.name}"] = None
             elif field_info["kind"] == "array":
                 item_type = field_info["item_type"]
                 node_class_annotations[field.name] = list[item_type] | None
                 node_class_dict[field.name] = None
+                node_class_dict[f"_field_info_{field.name}"] = None
             else:
                 node_class_dict[field.name] = field_info["descriptor"]
                 node_class_dict[f"_field_info_{field.name}"] = field_info
