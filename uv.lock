@@ -446,14 +446,14 @@ requires-dist = [
     { name = "clorm", marker = "extra == 'clingo'", specifier = ">=1.6.1" },
     { name = "fieldz", specifier = ">=0.1.2" },
     { name = "inflect", specifier = ">=7.5.0" },
-    { name = "pylpg", marker = "extra == 'all'", specifier = ">=0.2.2" },
-    { name = "pylpg", marker = "extra == 'biocypher'", specifier = ">=0.2.2" },
-    { name = "pylpg", extras = ["falkordb"], marker = "extra == 'all'", specifier = ">=0.2.2" },
-    { name = "pylpg", extras = ["falkordb"], marker = "extra == 'falkordb'", specifier = ">=0.2.2" },
-    { name = "pylpg", extras = ["falkordblite"], marker = "extra == 'all'", specifier = ">=0.2.2" },
-    { name = "pylpg", extras = ["falkordblite"], marker = "extra == 'falkordblite'", specifier = ">=0.2.2" },
-    { name = "pylpg", extras = ["neo4j"], marker = "extra == 'all'", specifier = ">=0.2.2" },
-    { name = "pylpg", extras = ["neo4j"], marker = "extra == 'neo4j'", specifier = ">=0.2.2" },
+    { name = "pylpg", marker = "extra == 'all'", specifier = ">=0.2.3" },
+    { name = "pylpg", marker = "extra == 'biocypher'", specifier = ">=0.2.3" },
+    { name = "pylpg", extras = ["falkordb"], marker = "extra == 'all'", specifier = ">=0.2.3" },
+    { name = "pylpg", extras = ["falkordb"], marker = "extra == 'falkordb'", specifier = ">=0.2.3" },
+    { name = "pylpg", extras = ["falkordblite"], marker = "extra == 'all'", specifier = ">=0.2.3" },
+    { name = "pylpg", extras = ["falkordblite"], marker = "extra == 'falkordblite'", specifier = ">=0.2.3" },
+    { name = "pylpg", extras = ["neo4j"], marker = "extra == 'all'", specifier = ">=0.2.3" },
+    { name = "pylpg", extras = ["neo4j"], marker = "extra == 'neo4j'", specifier = ">=0.2.3" },
     { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'biocypher'", specifier = ">=6.0" },
 ]
@@ -464,7 +464,7 @@ dev = [
     { name = "clorm", specifier = ">=1.6.1" },
     { name = "falkordblite", marker = "python_full_version >= '3.12'", specifier = ">=0.1" },
     { name = "pre-commit", specifier = ">=4.0" },
-    { name = "pylpg", extras = ["neo4j", "falkordb"], specifier = ">=0.2.2" },
+    { name = "pylpg", extras = ["neo4j", "falkordb"], specifier = ">=0.2.3" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ruff", specifier = ">=0.12.8" },
@@ -473,7 +473,7 @@ dev = [
 test = [
     { name = "clorm", specifier = ">=1.6.1" },
     { name = "falkordblite", marker = "python_full_version >= '3.12'", specifier = ">=0.1" },
-    { name = "pylpg", extras = ["neo4j", "falkordb"], specifier = ">=0.2.2" },
+    { name = "pylpg", extras = ["neo4j", "falkordb"], specifier = ">=0.2.3" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "testcontainers", extras = ["neo4j"], specifier = ">=4.0" },
@@ -649,11 +649,11 @@ wheels = [
 
 [[package]]
 name = "pylpg"
-version = "0.2.2"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/9b/56/79c89f79a3ca000ae5edee3456b3b23f9deec1831f8c4e5fbaf14a96d11f/pylpg-0.2.2.tar.gz", hash = "sha256:8c2cdbb2a761f969296158e46112a0efc4818a50462b6b133ed65d9911a74c14", size = 90720, upload-time = "2026-04-27T11:50:07.791Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/24/66ccfac55e66e4065af9dff35a587f6a17bd25e86bac4bb03a3b5eefcc73/pylpg-0.2.3.tar.gz", hash = "sha256:619e04bb94d4eb96ab11f374113dd2351b3c5449a84b1f4200eeff2e9bb80b47", size = 90973, upload-time = "2026-04-29T07:50:02.006Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/43/536bb573355cab502f885ef1af822e2715652a2e76a3c8944efbde434e7d/pylpg-0.2.2-py3-none-any.whl", hash = "sha256:3da651ecb1a7c49d990894e93122012fc03e55c228e5b71c513323a1341b20c2", size = 13264, upload-time = "2026-04-27T11:50:06.32Z" },
+    { url = "https://files.pythonhosted.org/packages/16/a0/44f7322ee84d78afbabaac3084d293f44b86610f423c866a35652549747a/pylpg-0.2.3-py3-none-any.whl", hash = "sha256:77a0f6f9d67d9153ae472fbdfc18028bce66222ebd6565fb2e1b135dcd20b6bd", size = 13360, upload-time = "2026-04-29T07:50:00.388Z" },
 ]
 
 [package.optional-dependencies]
