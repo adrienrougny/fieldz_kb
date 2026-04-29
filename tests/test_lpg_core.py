@@ -275,6 +275,63 @@ class TestMakeNodesFromObject:
                 fieldz_kb.lpg.core.get_default_context(), UnsupportedClass()
             )
 
+    def test_hash_mode_preserves_edges_to_cached_inner_node(self):
+        """When two top-level containers share a hash-equal inner element,
+        the second container's relationship to the cached inner node must
+        appear in the propagated relationships list.
+        """
+
+        @dataclasses.dataclass(frozen=True)
+        class Protein:
+            name: str
+
+        a = Protein(name="AKT1")
+        b = Protein(name="AKT1")
+        assert a == b and hash(a) == hash(b) and a is not b
+
+        s1 = frozenset([a, Protein(name="BCL2")])
+        s2 = frozenset([b, Protein(name="SNCA")])
+
+        context = fieldz_kb.lpg.core.make_context()
+        object_to_node = {}
+        all_relationships = []
+        all_nodes = []
+        for obj in [s1, s2]:
+            nodes, rels = fieldz_kb.lpg.core.make_nodes_from_object(
+                context,
+                obj,
+                integration_mode="hash",
+                object_to_node=object_to_node,
+            )
+            all_nodes += nodes
+            all_relationships += rels
+
+        frozenset_nodes = [
+            n for n in all_nodes if isinstance(n, fieldz_kb.lpg.graph.FrozenSet)
+        ]
+        assert len(frozenset_nodes) == 2
+        akt1_nodes = [
+            n
+            for n in all_nodes
+            if context.node_class_to_type.get(type(n)) is Protein
+            and getattr(n, "name", None) == "AKT1"
+        ]
+        akt1_node_ids = {id(n) for n in akt1_nodes}
+        assert len(akt1_node_ids) == 1, (
+            "AKT1 must be deduped to one node instance under hash mode"
+        )
+        akt1_node = akt1_nodes[0]
+        for fs_node in frozenset_nodes:
+            edges = [
+                r
+                for r in all_relationships
+                if r.source is fs_node and r.target is akt1_node
+            ]
+            assert len(edges) == 1, (
+                f"FrozenSet {id(fs_node)} must have exactly one HAS_ITEM edge to "
+                f"the cached AKT1 node (got {len(edges)})"
+            )
+
 
 class TestTypeMappings:
     """Tests for type to node class mappings."""
@@ -501,6 +558,192 @@ class TestComplexScenarios:
         retrieved = results[0][0]
         assert "TP53" in retrieved
         assert "BRCA1" in retrieved
+
+    def test_hash_mode_cross_container_shared_element_persists_edges(
+        self, session, clear_database
+    ):
+        """Two top-level containers, each holding a hash-equal inner element.
+        After save with integration_mode="hash", both containers must have
+        their HAS_ITEM edge to the deduped inner node persisted in the DB.
+        """
+
+        @dataclasses.dataclass(frozen=True)
+        class Protein:
+            name: str
+
+        a = Protein(name="AKT1")
+        b = Protein(name="AKT1")
+        s1 = frozenset([a, Protein(name="BCL2")])
+        s2 = frozenset([b, Protein(name="SNCA")])
+
+        session.save_from_objects([s1, s2], integration_mode="hash")
+
+        akt1_count = session.execute_query(
+            "MATCH (p:Protein {name: 'AKT1'}) RETURN count(p) AS c"
+        )[0]["c"]
+        assert akt1_count == 1
+
+        edges_to_akt1 = session.execute_query(
+            "MATCH (s:FrozenSet)-[:HAS_ITEM]->(p:Protein {name: 'AKT1'}) "
+            "RETURN count(s) AS c"
+        )[0]["c"]
+        assert edges_to_akt1 == 2, (
+            f"Expected 2 FrozenSet -> AKT1 edges (one per container), got {edges_to_akt1}"
+        )
+
+    def test_hash_mode_production_shape_frozendict_shared_element_persists_edges(
+        self, session, clear_database
+    ):
+        """Mimics the production shape that drops edges in downstream loads:
+
+        Collection -> frozenset[CollectionEntry] -> multiple frozendict fields,
+        with the same fielded dataclass appearing as value in one dict AND as
+        key in another, shared by hash across two top-level Collection objects.
+        """
+        try:
+            import frozendict as _fd_module
+        except ImportError:
+            pytest.skip("frozendict not installed")
+
+        import fieldz_kb.lpg.plugins as _plugins
+        import fieldz_kb.lpg.graph as _graph
+
+        class FrozenDictPlugin(_plugins.DictPlugin):
+            _handled_types = {_fd_module.frozendict}
+            _type_to_node_class = {_fd_module.frozendict: _graph.Dict}
+
+            @classmethod
+            def can_handle_type(cls, type_):
+                return type_ is _fd_module.frozendict
+
+            @classmethod
+            def make_nodes_from_object(
+                cls, obj, ctx, integration_mode, exclude_from_integration, object_to_node
+            ):
+                node = _graph.Dict()
+                nodes = [node]
+                relationships = []
+                for key, value in obj.items():
+                    item_nodes, item_relationships = cls._make_nodes_from_dict_item(
+                        key, value, ctx,
+                        integration_mode=integration_mode,
+                        exclude_from_integration=exclude_from_integration,
+                        object_to_node=object_to_node,
+                    )
+                    nodes += item_nodes
+                    relationships += item_relationships
+                    relationships.append(
+                        _graph.HasItem(source=node, target=item_nodes[0])
+                    )
+                return nodes, relationships
+
+        @dataclasses.dataclass(frozen=True)
+        class Reference:
+            db: str
+            accession: str
+
+        @dataclasses.dataclass(frozen=True)
+        class Annotation:
+            label: str
+
+        @dataclasses.dataclass(frozen=True)
+        class Protein:
+            name: str
+            reference: Reference
+
+        @dataclasses.dataclass(frozen=True)
+        class CollectionEntry:
+            label: str
+            id_to_element: _fd_module.frozendict
+            element_to_annotations: _fd_module.frozendict
+            source_id_to_model_element: _fd_module.frozendict
+
+        @dataclasses.dataclass(frozen=True)
+        class Collection:
+            name: str
+            entries: frozenset
+
+        def make_collection(name, prefix, akt1):
+            bcl2 = Protein(
+                name="BCL2",
+                reference=Reference(db="UniProt", accession="P10415"),
+            )
+            extra = Protein(
+                name=f"{prefix}_only",
+                reference=Reference(db="UniProt", accession=f"X{prefix}"),
+            )
+            ann_shared = Annotation(label="apoptosis")
+            ann_unique = Annotation(label=f"{prefix}_specific")
+            entry = CollectionEntry(
+                label=f"{prefix}_entry",
+                id_to_element=_fd_module.frozendict(
+                    {
+                        f"{prefix}_id1": akt1,
+                        f"{prefix}_id2": bcl2,
+                        f"{prefix}_id3": extra,
+                    }
+                ),
+                element_to_annotations=_fd_module.frozendict(
+                    {
+                        akt1: frozenset([ann_shared]),
+                        extra: frozenset([ann_unique]),
+                    }
+                ),
+                source_id_to_model_element=_fd_module.frozendict(
+                    {f"{prefix}_src1": akt1, f"{prefix}_src2": bcl2}
+                ),
+            )
+            return Collection(name=name, entries=frozenset([entry]))
+
+        akt1_a = Protein(
+            name="AKT1", reference=Reference(db="UniProt", accession="P31749")
+        )
+        akt1_b = Protein(
+            name="AKT1", reference=Reference(db="UniProt", accession="P31749")
+        )
+        assert akt1_a == akt1_b and hash(akt1_a) == hash(akt1_b)
+
+        c_covid = make_collection("COVID", "covid", akt1_a)
+        c_pd = make_collection("PD", "pd", akt1_b)
+
+        session.reset_context()
+        session._context._plugins.insert(0, FrozenDictPlugin)
+
+        session.save_from_objects([c_covid, c_pd], integration_mode="hash")
+
+        akt1_count = session.execute_query(
+            "MATCH (p:Protein {name: 'AKT1'}) RETURN count(p) AS c"
+        )[0]["c"]
+        assert akt1_count == 1, f"expected 1 deduped AKT1 node, got {akt1_count}"
+
+        items = session.execute_query("MATCH (i:Item) RETURN id(i) AS id")
+        missing_value = []
+        missing_key = []
+        for item in items:
+            iid = item["id"]
+            keys = session.execute_query(
+                f"MATCH (i)-[:HAS_KEY]->(k) WHERE id(i)={iid} RETURN k"
+            )
+            vals = session.execute_query(
+                f"MATCH (i)-[:HAS_VALUE]->(v) WHERE id(i)={iid} RETURN v"
+            )
+            if not vals:
+                missing_value.append(iid)
+            if not keys:
+                missing_key.append(iid)
+        assert missing_value == [], f"Items missing HAS_VALUE: {missing_value}"
+        assert missing_key == [], f"Items missing HAS_KEY: {missing_key}"
+
+        edges_v = session.execute_query(
+            "MATCH (i:Item)-[:HAS_VALUE]->(p:Protein {name: 'AKT1'}) "
+            "RETURN count(i) AS c"
+        )[0]["c"]
+        edges_k = session.execute_query(
+            "MATCH (i:Item)-[:HAS_KEY]->(p:Protein {name: 'AKT1'}) "
+            "RETURN count(i) AS c"
+        )[0]["c"]
+        assert edges_v == 4, f"expected 4 HAS_VALUE -> AKT1, got {edges_v}"
+        assert edges_k == 2, f"expected 2 HAS_KEY -> AKT1, got {edges_k}"
 
     def test_round_trip_complex_object(self, session, clear_database):
         pathway = Pathway(
