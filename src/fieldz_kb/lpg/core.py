@@ -256,10 +256,11 @@ def make_nodes_from_object(
         ctx.type_to_node_class[class_] = node_class
     if node_class not in ctx.node_class_to_type:
         ctx.node_class_to_type[node_class] = class_
-    if integration_mode == "hash":
-        object_to_node[object_] = nodes[0]
-    else:
-        object_to_node[id(object_)] = nodes[0]
+    if not isinstance(object_, exclude_from_integration):
+        if integration_mode == "hash":
+            object_to_node[object_] = nodes[0]
+        else:
+            object_to_node[id(object_)] = nodes[0]
     return nodes, relationships
 
 

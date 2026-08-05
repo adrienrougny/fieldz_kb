@@ -266,6 +266,31 @@ class TestMakeNodesFromObject:
         )
         assert nodes1[0] is not nodes2[0]
 
+    def test_hash_mode_with_dict_excluded_does_not_raise(self):
+        """Excluded types must skip both the cache read and the cache write.
+
+        Regression: the cache write at the end of make_nodes_from_object was
+        unconditional, so passing an unhashable excluded type (e.g. dict) under
+        hash mode raised TypeError on the write. The exclusion guard must be
+        symmetric with the read guard.
+        """
+        data = {"k": 1}
+        object_to_node = {}
+        context = fieldz_kb.lpg.core.make_context()
+
+        nodes, _ = fieldz_kb.lpg.core.make_nodes_from_object(
+            context,
+            data,
+            integration_mode="hash",
+            exclude_from_integration=(dict,),
+            object_to_node=object_to_node,
+        )
+
+        assert isinstance(nodes[0], fieldz_kb.lpg.graph.Dict)
+        assert id(data) not in object_to_node, (
+            "excluded objects must not be written into the integration cache"
+        )
+
     def test_unsupported_type_raises_error(self):
         class UnsupportedClass:
             pass
