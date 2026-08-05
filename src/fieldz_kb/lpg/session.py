@@ -62,18 +62,21 @@ class Session:
         self,
         query: str,
         params: dict | None = None,
+        resolve_nodes: bool = False,
     ) -> list[dict]:
         """Execute a Cypher query against the database.
 
         Args:
             query: The Cypher query string.
             params: Optional query parameters.
+            resolve_nodes: When True, any driver node objects in the results
+                are hydrated into `pylpg.node.Node` instances.
 
         Returns:
             Query results as a list of dicts.
         """
         return self._pylpg_session.execute_query(
-            query, parameters=params
+            query, parameters=params, resolve_nodes=resolve_nodes
         )
 
     def save_from_object(

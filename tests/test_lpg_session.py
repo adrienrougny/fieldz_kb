@@ -5,6 +5,38 @@ import unittest.mock
 import fieldz_kb.lpg.session
 
 
+class TestExecuteQuery:
+    """Tests for Session.execute_query argument forwarding."""
+
+    def test_resolve_nodes_defaults_to_false(self):
+        """The default must preserve the previous raw-result behaviour."""
+        backend = unittest.mock.MagicMock()
+        session = fieldz_kb.lpg.session.Session(backend)
+        mock_pylpg_session = unittest.mock.MagicMock()
+        session._pylpg_session = mock_pylpg_session
+
+        session.execute_query("MATCH (n) RETURN n")
+
+        mock_pylpg_session.execute_query.assert_called_once_with(
+            "MATCH (n) RETURN n", parameters=None, resolve_nodes=False
+        )
+
+    def test_resolve_nodes_is_forwarded_to_pylpg(self):
+        """resolve_nodes is a pass-through to the pylpg session."""
+        backend = unittest.mock.MagicMock()
+        session = fieldz_kb.lpg.session.Session(backend)
+        mock_pylpg_session = unittest.mock.MagicMock()
+        session._pylpg_session = mock_pylpg_session
+
+        session.execute_query(
+            "MATCH (n:Person) RETURN n", params={"x": 1}, resolve_nodes=True
+        )
+
+        mock_pylpg_session.execute_query.assert_called_once_with(
+            "MATCH (n:Person) RETURN n", parameters={"x": 1}, resolve_nodes=True
+        )
+
+
 class TestDeleteAll:
     """Tests for Session.delete_all routing."""
 
