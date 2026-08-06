@@ -163,15 +163,22 @@ class Session:
         results = self._pylpg_session.execute_query(
             query, parameters=params, resolve_nodes=True
         )
-        for row_dict in results:
-            row = [
-                fieldz_kb.lpg.core.make_object_from_node(
-                    self._context, value, node_id_to_object
-                )
-                for value in row_dict.values()
-                if isinstance(value, pylpg.node.Node)
-            ]
-            object_results.append(row)
+        root_nodes = [
+            value
+            for row_dict in results
+            for value in row_dict.values()
+            if isinstance(value, pylpg.node.Node)
+        ]
+        with self._pylpg_session.prefetch(roots=root_nodes):
+            for row_dict in results:
+                row = [
+                    fieldz_kb.lpg.core.make_object_from_node(
+                        self._context, value, node_id_to_object
+                    )
+                    for value in row_dict.values()
+                    if isinstance(value, pylpg.node.Node)
+                ]
+                object_results.append(row)
         return object_results
 
     def delete_all(self) -> None:

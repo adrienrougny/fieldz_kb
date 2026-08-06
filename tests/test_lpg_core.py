@@ -26,6 +26,60 @@ class Reaction:
     substrates: typing.List[str]
 
 
+@dataclasses.dataclass
+class Metabolite:
+    """Leaf node of the deep tree used by the query-count test."""
+
+    name: str
+    formula: str
+
+
+@dataclasses.dataclass
+class DeepReaction:
+    """Middle node of the deep tree used by the query-count test."""
+
+    name: str
+    metabolites: typing.List[Metabolite]
+
+
+@dataclasses.dataclass
+class DeepPathway:
+    """Middle node of the deep tree used by the query-count test."""
+
+    name: str
+    reactions: typing.List[DeepReaction]
+
+
+@dataclasses.dataclass
+class DeepOrganism:
+    """Root of the deep tree used by the query-count test."""
+
+    name: str
+    pathways: typing.List[DeepPathway]
+
+
+def make_deep_organism(branching: int) -> DeepOrganism:
+    """Build a four-level tree with the given branching factor.
+
+    Args:
+        branching: Number of children of each non-leaf node.
+
+    Returns:
+        A DeepOrganism whose subtree contains uniquely named nodes.
+    """
+    pathways = []
+    for i in range(branching):
+        reactions = []
+        for j in range(branching):
+            metabolites = [
+                Metabolite(name=f"m{i}_{j}_{k}", formula=f"C{k}H{k}")
+                for k in range(branching)
+            ]
+            reactions.append(DeepReaction(name=f"r{i}_{j}", metabolites=metabolites))
+        pathways.append(DeepPathway(name=f"p{i}", reactions=reactions))
+    return DeepOrganism(name="organism", pathways=pathways)
+
+
 class TestNodeClassGeneration:
     """Tests for node class generation functions."""
 
@@ -825,6 +879,59 @@ class TestExecuteQueryAsObjects:
         assert len(results) == 2
         assert results[0][0].name == "Hexokinase"
         assert results[1][0].name == "Phosphofructokinase"
+
+    def test_execute_query_as_objects_batches_queries(self, session, clear_database):
+        """Rebuilding a deep tree must not issue one query per node.
+
+        Without prefetching, the number of queries grows with the number of
+        non-leaf nodes (32 for this tree). With prefetching it grows with the
+        number of levels, so a small constant bound distinguishes the two.
+        """
+        branching = 5
+        organism = make_deep_organism(branching)
+        session.save_from_object(organism)
+
+        node_count = session.execute_query("MATCH (n) RETURN count(n) AS count")[0][
+            "count"
+        ]
+        assert node_count == 1 + branching + branching**2 + branching**3
+
+        backend = session._pylpg_session._backend
+        original_execute_query = backend.execute_query
+        query_count = 0
+
+        def counting_execute_query(*args, **kwargs):
+            nonlocal query_count
+            query_count += 1
+            return original_execute_query(*args, **kwargs)
+
+        backend.execute_query = counting_execute_query
+        try:
+            results = session.execute_query_as_objects("MATCH (n:DeepOrganism) RETURN n")
+        finally:
+            backend.execute_query = original_execute_query
+
+        assert query_count <= 10
+
+        retrieved = results[0][0]
+        assert retrieved.name == "organism"
+        assert sorted(p.name for p in retrieved.pathways) == sorted(
+            p.name for p in organism.pathways
+        )
+        assert sorted(
+            r.name for p in retrieved.pathways for r in p.reactions
+        ) == sorted(r.name for p in organism.pathways for r in p.reactions)
+        assert sorted(
+            (m.name, m.formula)
+            for p in retrieved.pathways
+            for r in p.reactions
+            for m in r.metabolites
+        ) == sorted(
+            (m.name, m.formula)
+            for p in organism.pathways
+            for r in p.reactions
+            for m in r.metabolites
+        )
 
 
 if __name__ == "__main__":
