@@ -938,6 +938,74 @@ class TestExecuteQueryAsObjects:
             for m in r.metabolites
         )
 
+    def test_execute_query_as_objects_populates_object_key_to_node(
+        self, session, clear_database
+    ):
+        """The cache must pair each returned object with its database node."""
+
+        @dataclasses.dataclass(frozen=True)
+        class Kinase:
+            name: str
+
+        session.save_from_objects(
+            [Kinase(name="AKT1"), Kinase(name="MTOR")], integration_mode="hash"
+        )
+
+        seed = {}
+        results = session.execute_query_as_objects(
+            "MATCH (n:Kinase) RETURN n ORDER BY n.name", object_key_to_node=seed
+        )
+
+        objects = [row[0] for row in results]
+        assert set(seed) == set(objects)
+        for object_ in objects:
+            node = seed[object_]
+            assert isinstance(node, fieldz_kb.lpg.graph.BaseNode)
+            assert node.is_saved()
+
+    def test_seeded_save_updates_instead_of_duplicating(self, session, clear_database):
+        """A seeded save must reuse existing nodes; an unseeded one duplicates."""
+
+        @dataclasses.dataclass(frozen=True)
+        class Receptor:
+            name: str
+
+        def node_count():
+            return session.execute_query("MATCH (n) RETURN count(n) AS c")[0]["c"]
+
+        session.save_from_objects(
+            [Receptor(name="EGFR"), Receptor(name="HER2")], integration_mode="hash"
+        )
+        before = node_count()
+
+        seed = {}
+        session.execute_query_as_objects(
+            "MATCH (n:Receptor) RETURN n", object_key_to_node=seed
+        )
+        session.save_from_objects(
+            [Receptor(name="EGFR")], integration_mode="hash", object_key_to_node=seed
+        )
+        assert node_count() == before
+
+        session.save_from_objects([Receptor(name="EGFR")], integration_mode="hash")
+        assert node_count() > before
+
+    def test_object_key_to_node_rejects_unhashable_objects(
+        self, session, clear_database
+    ):
+        """Unhashable results must raise ValueError, not a bare TypeError."""
+
+        @dataclasses.dataclass
+        class Ligand:
+            name: str
+
+        session.save_from_object(Ligand(name="ATP"))
+
+        with pytest.raises(ValueError, match="not hashable"):
+            session.execute_query_as_objects(
+                "MATCH (n:Ligand) RETURN n", object_key_to_node={}
+            )
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

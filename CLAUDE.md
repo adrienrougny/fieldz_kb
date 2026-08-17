@@ -47,7 +47,7 @@ with Session(Neo4jBackend(hostname="localhost")) as session:
 
 - **`_lpg/core.py`** — Plugin system for pylpg: dynamically generates `pylpg.Node` subclasses from Python types. Base types become value nodes, collections become container nodes, dataclasses become node classes with relationship descriptors. Plugin-based extensibility via `PylpgTypePlugin` and `PylpgContext`.
 
-- **`_lpg/session.py`** — Session wrapping `pylpg.Session`. Provides `save_from_object()`, `save_from_objects()`, `make_object_from_node()`, `execute_query()`, `execute_query_as_objects()`, `delete_all()`. Uses batch save for performance.
+- **`_lpg/session.py`** — Session wrapping `pylpg.Session`. Provides `save_from_object()`, `save_from_objects()`, `execute_query()`, `execute_query_as_objects()`, `delete_all()`. Uses batch save for performance. Object reconstruction lives in `_lpg/core.make_object_from_node()`, a module-level function called from `execute_query_as_objects()`.
 
 - **`_lpg/utils.py`** — Shared helpers for type classification, relationship naming, and field introspection.
 

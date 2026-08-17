@@ -4,6 +4,7 @@ Provides a Session class that wraps a pylpg.Session and adds
 higher-level methods for saving and retrieving fieldz objects.
 """
 
+import collections.abc
 import typing
 
 import pylpg.backend.base
@@ -161,6 +162,7 @@ class Session:
         query: str,
         params: dict | None = None,
         node_id_to_object: dict | None = None,
+        object_key_to_node: dict | None = None,
     ) -> list[list[object]]:
         """Execute a Cypher query and convert results to Python objects.
 
@@ -168,10 +170,22 @@ class Session:
             query: The Cypher query string.
             params: Optional query parameters.
             node_id_to_object: Optional cache mapping node database IDs to objects.
+            object_key_to_node: Optional cache mapping objects to the nodes they
+                were converted from, populated in place. Pass it on to a
+                subsequent save to update the existing nodes instead of creating
+                duplicates. Only the objects a row returns directly are recorded,
+                not the ones nested inside them, so a query must return whatever
+                it needs seeded. Keys are the objects themselves, which matches
+                "hash" integration mode only; a save under "id" mode keys on
+                object ids and misses every entry.
 
         Returns:
             A list of rows, where each row is a list of Python objects
             converted from Node instances in the query results.
+
+        Raises:
+            ValueError: If object_key_to_node is given and a converted object is
+                not hashable.
         """
         if node_id_to_object is None:
             node_id_to_object = {}
@@ -187,13 +201,25 @@ class Session:
         ]
         with self._pylpg_session.prefetch(roots=root_nodes):
             for row_dict in results:
-                row = [
-                    fieldz_kb.lpg.core.make_object_from_node(
-                        self._context, value, node_id_to_object
-                    )
+                row_nodes = [
+                    value
                     for value in row_dict.values()
                     if isinstance(value, pylpg.node.Node)
                 ]
+                row = [
+                    fieldz_kb.lpg.core.make_object_from_node(
+                        self._context, node, node_id_to_object
+                    )
+                    for node in row_nodes
+                ]
+                if object_key_to_node is not None:
+                    for node, object_ in zip(row_nodes, row):
+                        if not isinstance(object_, collections.abc.Hashable):
+                            raise ValueError(
+                                f"object of type {type(object_)} not hashable, "
+                                "cannot populate object_key_to_node"
+                            )
+                        object_key_to_node[object_] = node
                 object_results.append(row)
         return object_results
 
