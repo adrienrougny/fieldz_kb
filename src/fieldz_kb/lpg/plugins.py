@@ -47,7 +47,7 @@ class NoneTypePlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -112,7 +112,7 @@ class BaseTypePlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -174,7 +174,7 @@ class SequencePlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -190,7 +190,7 @@ class SequencePlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
                     element,
                     integration_mode=integration_mode,
                     exclude_from_integration=exclude_from_integration,
-                    object_to_node=object_to_node,
+                    object_key_to_node=object_key_to_node,
                 )
             )
             element_node = element_nodes[0]
@@ -263,7 +263,7 @@ class BagPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -279,7 +279,7 @@ class BagPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
                     element,
                     integration_mode=integration_mode,
                     exclude_from_integration=exclude_from_integration,
-                    object_to_node=object_to_node,
+                    object_key_to_node=object_key_to_node,
                 )
             )
             element_node = element_nodes[0]
@@ -349,7 +349,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -362,7 +362,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
             key,
             integration_mode=integration_mode,
             exclude_from_integration=exclude_from_integration,
-            object_to_node=object_to_node,
+            object_key_to_node=object_key_to_node,
         )
         nodes += key_nodes
         relationships += key_relationships
@@ -375,7 +375,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
             value,
             integration_mode=integration_mode,
             exclude_from_integration=exclude_from_integration,
-            object_to_node=object_to_node,
+            object_key_to_node=object_key_to_node,
         )
         nodes += value_nodes
         relationships += value_relationships
@@ -392,7 +392,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -408,7 +408,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
                 ctx,
                 integration_mode=integration_mode,
                 exclude_from_integration=exclude_from_integration,
-                object_to_node=object_to_node,
+                object_key_to_node=object_key_to_node,
             )
             nodes += item_nodes
             relationships += item_relationships
@@ -640,7 +640,7 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -674,7 +674,7 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
                                 field_value_element,
                                 integration_mode,
                                 exclude_from_integration,
-                                object_to_node,
+                                object_key_to_node,
                             )
                         )
                         nodes += sub_nodes
@@ -804,7 +804,7 @@ class EnumPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         ctx: fieldz_kb.lpg.core.PylpgContext,
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:

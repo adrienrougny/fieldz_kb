@@ -84,6 +84,7 @@ class Session:
         object_: object,
         integration_mode: typing.Literal["hash", "id"] = "id",
         exclude_from_integration: tuple[type, ...] | None = None,
+        object_key_to_node: dict | None = None,
     ) -> None:
         """Save a single object to the database.
 
@@ -91,11 +92,18 @@ class Session:
             object_: The object to save.
             integration_mode: How to handle duplicate objects ("hash" or "id").
             exclude_from_integration: Types to exclude from integration logic.
+            object_key_to_node: Optional cache mapping object keys to their
+                nodes, updated in place. Pass the same dict across calls to
+                integrate objects shared between them. Keys are the objects
+                themselves under "hash" integration mode and their ids under
+                "id" mode, so a shared cache is only valid while the mode is
+                constant.
         """
         self.save_from_objects(
             objects=[object_],
             integration_mode=integration_mode,
             exclude_from_integration=exclude_from_integration,
+            object_key_to_node=object_key_to_node,
         )
 
     def save_from_objects(
@@ -103,6 +111,7 @@ class Session:
         objects: list[object],
         integration_mode: typing.Literal["hash", "id"] = "id",
         exclude_from_integration: tuple[type, ...] | None = None,
+        object_key_to_node: dict | None = None,
     ) -> None:
         """Save multiple objects to the database.
 
@@ -110,13 +119,20 @@ class Session:
             objects: The objects to save.
             integration_mode: How to handle duplicate objects ("hash" or "id").
             exclude_from_integration: Types to exclude from integration logic.
+            object_key_to_node: Optional cache mapping object keys to their
+                nodes, updated in place. Pass the same dict across calls to
+                integrate objects shared between them. Keys are the objects
+                themselves under "hash" integration mode and their ids under
+                "id" mode, so a shared cache is only valid while the mode is
+                constant.
 
         Raises:
             ValueError: If a node is not a subclass of BaseNode.
         """
         if exclude_from_integration is None:
             exclude_from_integration = tuple()
-        object_to_node = {}
+        if object_key_to_node is None:
+            object_key_to_node = {}
         saved_node_ids = set()
         all_nodes = []
         all_relationships = []
@@ -126,7 +142,7 @@ class Session:
                 object_,
                 integration_mode,
                 exclude_from_integration,
-                object_to_node,
+                object_key_to_node,
             )
             for node in nodes:
                 if id(node) not in saved_node_ids:

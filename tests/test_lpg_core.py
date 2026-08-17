@@ -296,13 +296,13 @@ class TestMakeNodesFromObject:
 
     def test_make_nodes_with_integration_mode_hash(self):
         obj = frozenset([1, 2, 3])
-        object_to_node = {}
+        object_key_to_node = {}
         context = fieldz_kb.lpg.core.get_default_context()
         nodes1, _ = fieldz_kb.lpg.core.make_nodes_from_object(
-            context, obj, integration_mode="hash", object_to_node=object_to_node
+            context, obj, integration_mode="hash", object_key_to_node=object_key_to_node
         )
         nodes2, _ = fieldz_kb.lpg.core.make_nodes_from_object(
-            context, obj, integration_mode="hash", object_to_node=object_to_node
+            context, obj, integration_mode="hash", object_key_to_node=object_key_to_node
         )
 
         assert nodes1[0] is nodes2[0]
@@ -329,7 +329,7 @@ class TestMakeNodesFromObject:
         symmetric with the read guard.
         """
         data = {"k": 1}
-        object_to_node = {}
+        object_key_to_node = {}
         context = fieldz_kb.lpg.core.make_context()
 
         nodes, _ = fieldz_kb.lpg.core.make_nodes_from_object(
@@ -337,11 +337,11 @@ class TestMakeNodesFromObject:
             data,
             integration_mode="hash",
             exclude_from_integration=(dict,),
-            object_to_node=object_to_node,
+            object_key_to_node=object_key_to_node,
         )
 
         assert isinstance(nodes[0], fieldz_kb.lpg.graph.Dict)
-        assert id(data) not in object_to_node, (
+        assert id(data) not in object_key_to_node, (
             "excluded objects must not be written into the integration cache"
         )
 
@@ -372,7 +372,7 @@ class TestMakeNodesFromObject:
         s2 = frozenset([b, Protein(name="SNCA")])
 
         context = fieldz_kb.lpg.core.make_context()
-        object_to_node = {}
+        object_key_to_node = {}
         all_relationships = []
         all_nodes = []
         for obj in [s1, s2]:
@@ -380,7 +380,7 @@ class TestMakeNodesFromObject:
                 context,
                 obj,
                 integration_mode="hash",
-                object_to_node=object_to_node,
+                object_key_to_node=object_key_to_node,
             )
             all_nodes += nodes
             all_relationships += rels
@@ -697,7 +697,12 @@ class TestComplexScenarios:
 
             @classmethod
             def make_nodes_from_object(
-                cls, obj, ctx, integration_mode, exclude_from_integration, object_to_node
+                cls,
+                obj,
+                ctx,
+                integration_mode,
+                exclude_from_integration,
+                object_key_to_node,
             ):
                 node = _graph.Dict()
                 nodes = [node]
@@ -707,7 +712,7 @@ class TestComplexScenarios:
                         key, value, ctx,
                         integration_mode=integration_mode,
                         exclude_from_integration=exclude_from_integration,
-                        object_to_node=object_to_node,
+                        object_key_to_node=object_key_to_node,
                     )
                     nodes += item_nodes
                     relationships += item_relationships

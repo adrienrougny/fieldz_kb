@@ -78,7 +78,7 @@ class PylpgTypePlugin(abc.ABC):
         ctx: "PylpgContext",
         integration_mode: typing.Literal["hash", "id"],
         exclude_from_integration: tuple[type, ...],
-        object_to_node: dict,
+        object_key_to_node: dict,
     ) -> tuple[
         list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]
     ]:
@@ -213,7 +213,7 @@ def make_nodes_from_object(
     object_: object,
     integration_mode: typing.Literal["hash", "id"] = "id",
     exclude_from_integration: tuple[type, ...] | None = None,
-    object_to_node: dict | None = None,
+    object_key_to_node: dict | None = None,
 ) -> tuple[list[fieldz_kb.lpg.graph.BaseNode], list[pylpg.relationship.Relationship]]:
     """Convert a Python object to pylpg nodes and relationships.
 
@@ -222,24 +222,27 @@ def make_nodes_from_object(
         object_: The object to convert.
         integration_mode: How to handle duplicate objects ("hash" or "id").
         exclude_from_integration: Types to exclude from integration logic.
-        object_to_node: Cache mapping objects to their nodes for deduplication.
+        object_key_to_node: Cache mapping object keys to their nodes for
+            deduplication, updated in place. Keys are the objects themselves
+            under "hash" integration mode and their ids under "id" mode, so a
+            cache shared across calls is only valid while the mode is constant.
 
     Returns:
         A tuple of (nodes, relationships).
     """
     if exclude_from_integration is None:
         exclude_from_integration = tuple()
-    if object_to_node is None:
-        object_to_node = {}
+    if object_key_to_node is None:
+        object_key_to_node = {}
     if not isinstance(object_, exclude_from_integration):
         if integration_mode == "hash":
             if not isinstance(object_, collections.abc.Hashable):
                 raise ValueError(
                     f"object of type {type(object_)} not hashable, cannot use hash integration mode"
                 )
-            node = object_to_node.get(object_)
+            node = object_key_to_node.get(object_)
         else:
-            node = object_to_node.get(id(object_))
+            node = object_key_to_node.get(id(object_))
         if node is not None:
             return [node], []
     class_ = type(object_)
@@ -249,7 +252,7 @@ def make_nodes_from_object(
         ctx,
         integration_mode=integration_mode,
         exclude_from_integration=exclude_from_integration,
-        object_to_node=object_to_node,
+        object_key_to_node=object_key_to_node,
     )
     node_class = type(nodes[0])
     if class_ not in ctx.type_to_node_class:
@@ -258,9 +261,9 @@ def make_nodes_from_object(
         ctx.node_class_to_type[node_class] = class_
     if not isinstance(object_, exclude_from_integration):
         if integration_mode == "hash":
-            object_to_node[object_] = nodes[0]
+            object_key_to_node[object_] = nodes[0]
         else:
-            object_to_node[id(object_)] = nodes[0]
+            object_key_to_node[id(object_)] = nodes[0]
     return nodes, relationships
 
 
