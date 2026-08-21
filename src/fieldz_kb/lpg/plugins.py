@@ -211,10 +211,13 @@ class SequencePlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         node_id_to_object: dict,
     ) -> object:
         """Reconstruct a sequence from a container node."""
-        items = node.items.all()
+        relationships = node.items.relationships()
+        relationships.sort(key=lambda relationship: relationship.order)
         objects = [
-            fieldz_kb.lpg.core.make_object_from_node(ctx, node_item, node_id_to_object)
-            for node_item in items
+            fieldz_kb.lpg.core.make_object_from_node(
+                ctx, relationship.target, node_id_to_object
+            )
+            for relationship in relationships
         ]
         sequence_type = ctx.node_class_to_type[type(node)]
         return sequence_type(objects)
@@ -401,7 +404,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         node = node_class()
         nodes = [node]
         relationships = []
-        for key, value in obj.items():
+        for index, (key, value) in enumerate(obj.items()):
             item_nodes, item_relationships = cls._make_nodes_from_dict_item(
                 key,
                 value,
@@ -414,7 +417,7 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
             relationships += item_relationships
             item_node = item_nodes[0]
             relationships.append(
-                fieldz_kb.lpg.graph.HasItem(source=node, target=item_node)
+                fieldz_kb.lpg.graph.HasItem(source=node, target=item_node, order=index)
             )
         return nodes, relationships
 
@@ -429,7 +432,10 @@ class DictPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
         node_class = type(node)
         if node_class is fieldz_kb.lpg.graph.Dict:
             dict_object = {}
-            for item_node in node.items.all():
+            relationships = node.items.relationships()
+            relationships.sort(key=lambda relationship: relationship.order)
+            for relationship in relationships:
+                item_node = relationship.target
                 key_nodes = item_node.key.all()
                 value_nodes = item_node.value.all()
                 key = fieldz_kb.lpg.core.make_object_from_node(
@@ -719,7 +725,14 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
                 bound_relationship = getattr(node, field.name)
                 many = field_info["many"]
                 if many:
-                    related_nodes = bound_relationship.all()
+                    if field_info["ordered"]:
+                        relationships = bound_relationship.relationships()
+                        relationships.sort(key=lambda relationship: relationship.order)
+                        related_nodes = [
+                            relationship.target for relationship in relationships
+                        ]
+                    else:
+                        related_nodes = bound_relationship.all()
                     if not related_nodes and field.default is None:
                         field_value = None
                     else:

@@ -27,6 +27,53 @@ class Reaction:
 
 
 @dataclasses.dataclass
+class OrderedThing:
+    """Element used by the collection ordering tests."""
+
+    name: str
+
+
+@dataclasses.dataclass
+class OrderedBox:
+    """Container whose collections all share their last element with `featured`.
+
+    Sharing makes the shared element the first one created in the database, so
+    creation order differs from collection order and a read path that ignores
+    the stored order returns the elements shuffled.
+    """
+
+    featured: OrderedThing
+    items: typing.List[OrderedThing]
+    pair: typing.Tuple[OrderedThing, ...]
+    groups: typing.List[typing.List[OrderedThing]]
+    mapping: typing.Dict[str, OrderedThing]
+
+
+def make_ordered_box() -> OrderedBox:
+    """Build an OrderedBox whose collections all end on the shared element."""
+    shared = OrderedThing(name="shared")
+    return OrderedBox(
+        featured=shared,
+        items=[
+            OrderedThing(name="first"),
+            OrderedThing(name="second"),
+            OrderedThing(name="third"),
+            shared,
+        ],
+        pair=(OrderedThing(name="left"), shared),
+        groups=[
+            [OrderedThing(name="a"), OrderedThing(name="b")],
+            [OrderedThing(name="c"), shared],
+        ],
+        mapping={
+            "gamma": OrderedThing(name="gamma"),
+            "beta": shared,
+            "alpha": OrderedThing(name="alpha"),
+        },
+    )
+
+
+@dataclasses.dataclass
 class Metabolite:
     """Leaf node of the deep tree used by the query-count test."""
 
@@ -1005,6 +1052,83 @@ class TestExecuteQueryAsObjects:
             session.execute_query_as_objects(
                 "MATCH (n:Ligand) RETURN n", object_key_to_node={}
             )
+
+
+
+@pytest.mark.usefixtures("clear_database")
+class TestCollectionOrder:
+    """Tests that ordered collections keep their order through a round trip."""
+
+    def test_list_field_keeps_order(self, session, clear_database):
+        box = make_ordered_box()
+
+        session.save_from_object(box)
+
+        retrieved = session.execute_query_as_objects(
+            "MATCH (n:OrderedBox) RETURN n"
+        )[0][0]
+        assert [item.name for item in retrieved.items] == [
+            "first",
+            "second",
+            "third",
+            "shared",
+        ]
+
+    def test_tuple_field_keeps_order(self, session, clear_database):
+        box = make_ordered_box()
+
+        session.save_from_object(box)
+
+        retrieved = session.execute_query_as_objects(
+            "MATCH (n:OrderedBox) RETURN n"
+        )[0][0]
+        assert isinstance(retrieved.pair, tuple)
+        assert [item.name for item in retrieved.pair] == ["left", "shared"]
+
+    def test_nested_lists_keep_order(self, session, clear_database):
+        box = make_ordered_box()
+
+        session.save_from_object(box)
+
+        retrieved = session.execute_query_as_objects(
+            "MATCH (n:OrderedBox) RETURN n"
+        )[0][0]
+        assert [
+            [item.name for item in group] for group in retrieved.groups
+        ] == [["a", "b"], ["c", "shared"]]
+
+    def test_dict_field_keeps_insertion_order(self, session, clear_database):
+        box = make_ordered_box()
+
+        session.save_from_object(box)
+
+        retrieved = session.execute_query_as_objects(
+            "MATCH (n:OrderedBox) RETURN n"
+        )[0][0]
+        assert list(retrieved.mapping) == ["gamma", "beta", "alpha"]
+
+    def test_standalone_list_keeps_order(self, session, clear_database):
+        shared = OrderedThing(name="shared")
+        things = [
+            OrderedThing(name="first"),
+            OrderedThing(name="second"),
+            shared,
+            OrderedThing(name="fourth"),
+        ]
+
+        session.save_from_object([shared, things])
+
+        results = session.execute_query_as_objects(
+            "MATCH (n:List) RETURN n"
+        )
+        retrieved = max((row[0] for row in results), key=len)
+        assert [item.name for item in retrieved] == [
+            "first",
+            "second",
+            "shared",
+            "fourth",
+        ]
+
 
 
 if __name__ == "__main__":
