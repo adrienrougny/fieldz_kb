@@ -11,6 +11,7 @@ import pytest
 import clorm
 
 import fieldz_kb.clingo.session
+import tests.forward_reference_subclass
 
 
 @pytest.fixture
@@ -127,6 +128,13 @@ class TestPredicateClassGeneration:
     def test_unsupported_type_raises_error(self, clingo_session):
         with pytest.raises(ValueError, match="not supported"):
             clingo_session.get_or_make_predicate_classes_from_type(int)
+
+    def test_inherited_forward_reference_in_other_module(self, clingo_session):
+        """Inherited string annotations resolve in the base class's module."""
+        predicate_classes = clingo_session.get_or_make_predicate_classes_from_type(
+            tests.forward_reference_subclass.ForwardReferenceSubclass
+        )
+        assert len(predicate_classes) >= 1
 
 
 class TestPredicateNaming:

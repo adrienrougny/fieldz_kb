@@ -16,6 +16,8 @@ import pylpg.relationship
 import pytest
 
 import fieldz_kb.lpg.core
+import tests.forward_reference_base
+import tests.forward_reference_subclass
 
 
 @dataclasses.dataclass
@@ -165,6 +167,28 @@ class TestInheritanceNodeClassConsistency:
             )
 
 
+class TestInheritedForwardReferences:
+    """Inherited string annotations must resolve in the declaring class's module."""
+
+    def test_subclass_in_other_module_builds_node_class(self):
+        """The subclass module does not import the names used by the base."""
+        ctx = fieldz_kb.lpg.core.make_context()
+        sub_node_class = fieldz_kb.lpg.core.get_or_make_node_class_from_type(
+            ctx, tests.forward_reference_subclass.ForwardReferenceSubclass
+        )
+        base_node_class = ctx.type_to_node_class[
+            tests.forward_reference_base.ForwardReferenceBase
+        ]
+        parent_field_info = sub_node_class._field_info_parent
+        assert parent_field_info["kind"] == "relationship"
+        assert not parent_field_info["many"]
+        children_field_info = sub_node_class._field_info_children
+        assert children_field_info["kind"] == "relationship"
+        assert children_field_info["many"]
+        assert sub_node_class._field_info_tags is None
+        assert issubclass(sub_node_class, base_node_class)
+
+
 @pytest.mark.usefixtures("clear_database")
 class TestInheritanceRoundTrip:
     """End-to-end save+load through a real backend for inherited relationships."""
@@ -192,3 +216,29 @@ class TestInheritanceRoundTrip:
         retrieved = results[0][0]
         assert isinstance(retrieved, SubLayoutPrimitiveOverride)
         assert retrieved.position == "top-left"
+
+    def test_subclass_round_trip_with_inherited_forward_references(
+        self, session, clear_database
+    ):
+        base_class = tests.forward_reference_base.ForwardReferenceBase
+        subclass = tests.forward_reference_subclass.ForwardReferenceSubclass
+        child = base_class(name="child")
+        parent = base_class(name="parent")
+        obj = subclass(
+            name="sub",
+            parent=parent,
+            children=[child],
+            tags=("a", "b"),
+            extra=3,
+        )
+        session.save_from_object(obj)
+        results = session.execute_query_as_objects(
+            "MATCH (n:ForwardReferenceSubclass) RETURN n"
+        )
+        assert len(results) == 1
+        retrieved = results[0][0]
+        assert isinstance(retrieved, subclass)
+        assert retrieved.extra == 3
+        assert retrieved.tags == ("a", "b")
+        assert retrieved.parent == parent
+        assert retrieved.children == [child]

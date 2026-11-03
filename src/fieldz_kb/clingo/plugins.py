@@ -38,7 +38,7 @@ def make_predicate_classes_and_keys_from_field(
     if guard is None:
         guard = set()
     type_hint = field.type
-    types_ = fieldz_kb.typeinfo.get_types_from_type_hint(type_hint)
+    types_ = fieldz_kb.typeinfo.get_types_from_type_hint(type_hint, module=module)
     many = any([type_[0] in fieldz_kb.clingo.utils.ARRAY_TYPES for type_ in types_])
     predicate_name = fieldz_kb.clingo.utils.make_predicate_name_from_field(
         field.name, many
@@ -137,7 +137,9 @@ class FieldzClassPlugin(fieldz_kb.clingo.core.ClingoTypePlugin):
                     type_,
                     field,
                     type_=None,
-                    module=type_.__module__,
+                    module=fieldz_kb.typeinfo.get_field_declaring_module(
+                        type_, field.name
+                    ),
                     make_predicate_classes_recursively=make_predicate_classes_recursively,
                     guard=guard,
                 )

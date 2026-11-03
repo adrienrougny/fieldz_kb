@@ -4,6 +4,7 @@ This module provides utilities for introspecting type hints, including
 support for forward references, unions, optionals, and generic types.
 """
 
+import inspect
 import sys
 import typing
 import types
@@ -37,6 +38,28 @@ def is_missing_type(type_):
         True if the type is the missing sentinel, False otherwise
     """
     return type_ is fieldz._types._MISSING_TYPE.MISSING
+
+
+def get_field_declaring_module(type_: type, field_name: str) -> str:
+    """Get the name of the module of the class that declares a field.
+
+    Inherited fields keep the string annotations of the class that declares
+    them, so they must be resolved in that class's module rather than in the
+    module of the subclass. The declaring class is the first class in the MRO
+    of the type whose own annotations contain the field name.
+
+    Args:
+        type_: The class owning the field, possibly through inheritance.
+        field_name: The name of the field.
+
+    Returns:
+        The module name of the declaring class, or the module name of the type
+        if no class in its MRO annotates the field.
+    """
+    for class_ in type_.__mro__:
+        if field_name in inspect.get_annotations(class_):
+            return class_.__module__
+    return type_.__module__
 
 
 def _evaluate_forward_ref(forward_ref: typing.ForwardRef) -> type:

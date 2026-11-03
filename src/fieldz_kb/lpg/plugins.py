@@ -619,7 +619,9 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
             field_info = cls._make_node_property_from_field(
                 ctx,
                 field,
-                module=type_.__module__,
+                module=fieldz_kb.typeinfo.get_field_declaring_module(
+                    type_, field.name
+                ),
                 make_node_classes_recursively=make_node_classes_recursively,
                 guard=guard,
             )
@@ -716,7 +718,10 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
                     field_value = None
                 elif isinstance(node_attr_value, list):
                     array_type = fieldz_kb.lpg.utils.get_array_type_from_field(
-                        field, module=fieldz_class.__module__
+                        field,
+                        module=fieldz_kb.typeinfo.get_field_declaring_module(
+                            fieldz_class, field.name
+                        ),
                     )
                     field_value = array_type(node_attr_value)
                 else:
@@ -737,7 +742,10 @@ class FieldzClassPlugin(fieldz_kb.lpg.core.PylpgTypePlugin):
                         field_value = None
                     else:
                         array_type = fieldz_kb.lpg.utils.get_array_type_from_field(
-                            field, module=fieldz_class.__module__
+                            field,
+                            module=fieldz_kb.typeinfo.get_field_declaring_module(
+                                fieldz_class, field.name
+                            ),
                         )
                         field_value = array_type(
                             [
