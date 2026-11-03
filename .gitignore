@@ -166,3 +166,4 @@ cython_debug/
 # opencode plans and artifacts
 .opencode/
 plans/
+.harness-sandbox/
